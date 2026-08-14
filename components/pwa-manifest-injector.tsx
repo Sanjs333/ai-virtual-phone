@@ -4,27 +4,14 @@ import { useEffect } from "react";
 
 export function PWAManifestInjector() {
   useEffect(() => {
-    // Read user preference from localStorage
-    let mode = "standalone"; // default
-    try {
-      const settings = localStorage.getItem("chatAppSettings");
-      if (settings) {
-        const parsed = JSON.parse(settings);
-        mode = parsed.pwaDisplayMode || "standalone";
-      }
-    } catch (e) {
-      console.warn("[PWA] Failed to read display mode preference:", e);
-    }
-
-    // Update manifest link with mode parameter
-    const existingLink = document.querySelector('link[rel="manifest"]');
-    if (existingLink) {
-      existingLink.setAttribute("href", `/manifest.webmanifest?mode=${mode}`);
-    } else {
-      const link = document.createElement("link");
-      link.rel = "manifest";
-      link.href = `/manifest.webmanifest?mode=${mode}`;
-      document.head.appendChild(link);
+    // The manifest route reads the `pwa_display_mode` cookie to decide the display
+    // mode; there is nothing to inject client-side. We only bust any cached
+    // manifest link so a fresh copy is fetched after the user changes the setting.
+    const link = document.querySelector('link[rel="manifest"]');
+    if (link) {
+      const href = link.getAttribute("href") || "/manifest.webmanifest";
+      const base = href.split("?")[0];
+      link.setAttribute("href", `${base}?t=${Date.now()}`);
     }
   }, []);
 

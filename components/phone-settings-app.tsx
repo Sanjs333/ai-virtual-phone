@@ -246,6 +246,11 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
     const handlePwaDisplayModeChange = useCallback((next: "fullscreen" | "standalone") => {
         setPwaDisplayMode(next);
         saveChatAppSettings({ ...loadChatAppSettings(), pwaDisplayMode: next });
+        // manifest 在 PWA 安装/更新时由浏览器以普通网络请求抓取，读不到 IndexedDB；
+        // 用 cookie 把偏好带给 manifest 路由（cookie 会随该请求自动发送）。
+        try {
+            document.cookie = `pwa_display_mode=${next}; path=/; max-age=31536000; samesite=lax`;
+        } catch {}
         onNotice(next === "fullscreen" ? "已切换为全屏模式，刷新页面后重新添加到桌面生效" : "已切换为标准模式，刷新页面后重新添加到桌面生效");
     }, [onNotice]);
 
@@ -428,27 +433,19 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
                                 </div>
                                 <Toggle checked={keepAlive} onChange={handleKeepAliveChange} className="settings-toggle-control" />
                             </div>
-                            <div className="menu-group">
-                                <div className="menu-item settings-tools-menu-item">
-                                    <span className="card-icon" style={realtimeIconStyle}>
-                                        <Layers size={22} strokeWidth={1.75} />
-                                    </span>
-                                    <span className="settings-tools-menu-copy">
-                                        <span className="menu-label appearance-menu-item-label">PWA 显示模式</span>
-                                        <span className="menu-desc settings-tools-menu-desc">标准模式显示状态栏，全屏模式沉浸式体验</span>
-                                    </span>
-                                    <span className="menu-right">
-                                        <select 
-                                            value={pwaDisplayMode} 
-                                            onChange={(e) => handlePwaDisplayModeChange(e.target.value as "fullscreen" | "standalone")}
-                                            className="ui-select"
-                                            style={{ minWidth: "100px", fontSize: "14px" }}
-                                        >
-                                            <option value="standalone">标准</option>
-                                            <option value="fullscreen">全屏</option>
-                                        </select>
-                                    </span>
+                            <div className="app-card card-featured settings-toggle-card">
+                                <span className="card-icon" style={realtimeIconStyle}>
+                                    <Layers size={22} strokeWidth={1.75} />
+                                </span>
+                                <div className="card-featured-body">
+                                    <div className="card-featured-label">PWA 沉浸全屏</div>
+                                    <div className="card-featured-desc">关闭后显示手机状态栏，避免安卓一直弹「全屏运行」提示；切换后需重新添加到桌面生效</div>
                                 </div>
+                                <Toggle
+                                    checked={pwaDisplayMode === "fullscreen"}
+                                    onChange={(v) => handlePwaDisplayModeChange(v ? "fullscreen" : "standalone")}
+                                    className="settings-toggle-control"
+                                />
                             </div>
                         </div>
                         {isAdmin ? (
