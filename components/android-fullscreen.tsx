@@ -16,17 +16,10 @@ export function AndroidFullscreen() {
     ).matches;
     if (!isMobile) return;
 
-    // Read user preference: if they turned off immersive fullscreen, respect it.
-    let userWantsFullscreen = true;
-    try {
-      const settings = localStorage.getItem("chatAppSettings");
-      if (settings) {
-        const parsed = JSON.parse(settings);
-        // "fullscreen" means immersive; "standalone" or absent means show status bar.
-        userWantsFullscreen = parsed.pwaDisplayMode === "fullscreen";
-      }
-    } catch {}
-
+    // 只在用户明确开启「PWA 沉浸全屏」时启用 Fullscreen API。
+    // 设置实际存于 IndexedDB，不能从 localStorage 读取；cookie 是设置页同步写入的可靠标记。
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)pwa_display_mode=([^;]+)/);
+    const userWantsFullscreen = cookieMatch && decodeURIComponent(cookieMatch[1]) === "fullscreen";
     if (!userWantsFullscreen) return;
 
     function tryFullscreen() {

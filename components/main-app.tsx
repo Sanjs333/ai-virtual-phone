@@ -254,11 +254,12 @@ export function MainApp() {
       }
     })();
 
-    // 安卓全屏兜底：点击屏幕进入全屏模式（iOS 不支持此 API，会自动忽略）
+    // 仅在用户明确开启「PWA 沉浸全屏」时注册 Fullscreen API 监听。
+    // 默认关闭；否则浏览器 manifest 的 display 设置会被运行时 requestFullscreen() 覆盖。
     const isMobile = window.matchMedia("(max-width: 500px) and (hover: none) and (pointer: coarse)").matches;
-    // Edge 改用 minimal-ui 保留原生状态栏，不能再被强制全屏顶掉（仅 Edge 跳过，其它浏览器照旧）
-    const isEdge = /Edg/i.test(navigator.userAgent);
-    if (!isMobile || isEdge) return () => {
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)pwa_display_mode=([^;]+)/);
+    const userWantsFullscreen = cookieMatch && decodeURIComponent(cookieMatch[1]) === "fullscreen";
+    if (!isMobile || !userWantsFullscreen) return () => {
       cancelled = true;
     };
 
@@ -267,7 +268,6 @@ export function MainApp() {
       if (document.fullscreenElement) return;
       doc.requestFullscreen?.().catch(() => { });
     }
-    // 每次点击都尝试进入全屏（退出后可重新进入）
     document.addEventListener("click", tryFullscreen);
     return () => {
       cancelled = true;
