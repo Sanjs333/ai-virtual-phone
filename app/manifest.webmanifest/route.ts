@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import baseManifest from "../../public/manifest.json";
+import { readPwaDisplayPreference } from "@/lib/pwa-display-mode";
 
 export const runtime = "nodejs";
 
@@ -11,53 +12,39 @@ export const runtime = "nodejs";
 // The manifest is fetched per browser at install time, so UA sniffing here works.
 // Takes effect only on (re)install.
 // 
-// User preference for PWA display mode is read from the `pwa_display_mode` cookie
-// (set by the settings page). Cookies are sent with the manifest network request
-// at (re)install time, which IndexedDB / URL params cannot reliably do.
-//   - "standalone"  -> immersive (hides native status bar, may prompt fullscreen)
-//   - "fullscreen"  -> fully immersive
-//   - default/absent -> "minimal-ui": shows the native status bar, no fullscreen prompt
-// The `display` main field (not display_override) is what decides whether the
-// status bar is shown. Takes effect only on (re)install.
+// An explicit cookie can override the install mode. With no cookie, keep the
+// upstream behavior so existing installs and users are not silently changed.
 export function GET(request: NextRequest) {
   const ua = request.headers.get("user-agent") || "";
   const isEdge = /Edg/i.test(ua);
+  const preference = readPwaDisplayPreference(request.headers.get("cookie") || "");
 
-  // Read user preference from cookie
-  const cookie = request.headers.get("cookie") || "";
-  const match = cookie.match(/(?:^|;\s*)pwa_display_mode=([^;]+)/);
-  const userDisplayMode = match ? decodeURIComponent(match[1]) : "";
-
-  let manifest = { ...baseManifest };
-
-  // Apply user preference to the `display` main field.
-  if (userDisplayMode === "fullscreen") {
-    manifest.display = "fullscreen";
-    manifest.display_override = ["fullscreen", "standalone"];
-  } else if (userDisplayMode === "standalone") {
-    manifest.display = "standalone";
-    manifest.display_override = ["standalone", "minimal-ui"];
-  } else {
-    // Default: show the native status bar, no fullscreen prompt.
-    manifest.display = "minimal-ui";
-    manifest.display_override = ["minimal-ui", "standalone"];
-  }
-
-  // Edge only ever renders the native status bar correctly with minimal-ui.
-  if (isEdge && userDisplayMode !== "fullscreen") {
-    manifest = {
-      ...manifest,
-      display: "minimal-ui",
-      display_override: ["minimal-ui", "standalone"],
-      theme_color: "#f8f7f2",
-    };
-  }
+  const manifest = preference === "fullscreen"
+    ? {
+        ...baseManifest,
+        display: "fullscreen",
+        display_override: ["fullscreen", "standalone"],
+      }
+    : preference === "standalone"
+      ? {
+          ...baseManifest,
+          display: isEdge ? "minimal-ui" : "standalone",
+          display_override: isEdge ? ["minimal-ui", "standalone"] : ["standalone", "minimal-ui"],
+          ...(isEdge ? { theme_color: "#f8f7f2" } : {}),
+        }
+      : isEdge
+        ? {
+            ...baseManifest,
+            display: "minimal-ui",
+            display_override: ["minimal-ui", "standalone"],
+            theme_color: "#f8f7f2",
+          }
+        : baseManifest;
 
   return new NextResponse(JSON.stringify(manifest), {
     headers: {
       "content-type": "application/manifest+json; charset=utf-8",
-      // Must vary by UA to serve correct manifest per browser
-      "vary": "user-agent",
+      "vary": "user-agent, cookie",
       "cache-control": "no-store",
     },
   });

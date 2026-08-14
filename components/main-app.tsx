@@ -13,6 +13,7 @@ import { hydrateKvDb } from "@/lib/kv-db";
 import { getThemeAssetMap, readThemeProfile } from "@/lib/theme-storage";
 import { resolveActiveIconSkins, type ThemeProfile } from "@/lib/theme-types";
 import { hasPendingMcpOAuthCallback } from "@/lib/tool-executor";
+import { shouldRequestPwaFullscreen } from "@/lib/pwa-display-mode";
 
 const TEXT = {
   loading: "\u52A0\u8F7D\u4E2D...",
@@ -254,16 +255,14 @@ export function MainApp() {
       }
     })();
 
-    // 仅在用户明确开启「PWA 沉浸全屏」时注册 Fullscreen API 监听。
-    // 默认关闭；否则浏览器 manifest 的 display 设置会被运行时 requestFullscreen() 覆盖。
+    // 安卓全屏兜底。是否请求全屏在每次点击时读取，设置切换后无需重载。
     const isMobile = window.matchMedia("(max-width: 500px) and (hover: none) and (pointer: coarse)").matches;
-    const cookieMatch = document.cookie.match(/(?:^|;\s*)pwa_display_mode=([^;]+)/);
-    const userWantsFullscreen = cookieMatch && decodeURIComponent(cookieMatch[1]) === "fullscreen";
-    if (!isMobile || !userWantsFullscreen) return () => {
+    if (!isMobile) return () => {
       cancelled = true;
     };
 
     function tryFullscreen() {
+      if (!shouldRequestPwaFullscreen()) return;
       const doc = document.documentElement;
       if (document.fullscreenElement) return;
       doc.requestFullscreen?.().catch(() => { });

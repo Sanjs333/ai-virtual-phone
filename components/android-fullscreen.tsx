@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { shouldRequestPwaFullscreen } from "@/lib/pwa-display-mode";
+
 /**
  * 安卓全屏兜底：点击屏幕进入全屏模式（iOS 不支持此 API，会自动忽略）。
  *
@@ -16,13 +18,8 @@ export function AndroidFullscreen() {
     ).matches;
     if (!isMobile) return;
 
-    // 只在用户明确开启「PWA 沉浸全屏」时启用 Fullscreen API。
-    // 设置实际存于 IndexedDB，不能从 localStorage 读取；cookie 是设置页同步写入的可靠标记。
-    const cookieMatch = document.cookie.match(/(?:^|;\s*)pwa_display_mode=([^;]+)/);
-    const userWantsFullscreen = cookieMatch && decodeURIComponent(cookieMatch[1]) === "fullscreen";
-    if (!userWantsFullscreen) return;
-
     function tryFullscreen() {
+      if (!shouldRequestPwaFullscreen()) return;
       const doc = document.documentElement;
       if (document.fullscreenElement) return;
       doc.requestFullscreen?.().catch(() => { });

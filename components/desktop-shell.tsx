@@ -120,7 +120,7 @@ import { WidgetRenderer } from "@/components/widgets/widget-renderer";
 import type { DIYWidgetTemplate } from "@/lib/widget-types";
 import { DebugPromptPanel } from "@/components/debug-prompt-panel";
 import { QuickActionFloat } from "@/components/quick-action-float";
-import { CHAT_APP_SETTINGS_UPDATED_EVENT, CHAT_MESSAGE_PUSHED_EVENT, CHAT_REQUEST_REPLY_EVENT, hydrateChatStorage, loadChatAppSettings, loadChatSessions, loadChatMessages, pushChatMessage, type ChatMessage, type ChatSession } from "@/lib/chat-storage";
+import { CHAT_MESSAGE_PUSHED_EVENT, CHAT_REQUEST_REPLY_EVENT, hydrateChatStorage, loadChatSessions, loadChatMessages, pushChatMessage, type ChatMessage, type ChatSession } from "@/lib/chat-storage";
 import { resolveUserIdentity } from "@/lib/settings-storage";
 import { loadCharacters } from "@/lib/character-storage";
 import { generateChatCompletion, flattenCompletionResult } from "@/lib/chat-engine";
@@ -912,18 +912,6 @@ export function DesktopShell({ initialThemeProfile, initialThemeAssets }: Deskto
   const [glassPaintPass, setGlassPaintPass] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [activeApp, setActiveApp] = useState<DesktopIconId | null>(null);
-  const [pwaDisplayMode, setPwaDisplayMode] = useState<"fullscreen" | "standalone">(() => (
-    typeof window !== "undefined" && loadChatAppSettings().pwaDisplayMode === "fullscreen"
-      ? "fullscreen"
-      : "standalone"
-  ));
-  useEffect(() => {
-    const syncPwaDisplayMode = () => {
-      setPwaDisplayMode(loadChatAppSettings().pwaDisplayMode === "fullscreen" ? "fullscreen" : "standalone");
-    };
-    window.addEventListener(CHAT_APP_SETTINGS_UPDATED_EVENT, syncPwaDisplayMode);
-    return () => window.removeEventListener(CHAT_APP_SETTINGS_UPDATED_EVENT, syncPwaDisplayMode);
-  }, []);
   const [customApps, setCustomApps] = useState<InstalledCustomApp[]>([]);
   // 自定义 APP 桌面图标样式偏好（global = 忽略上传图标走全局效果）
   const [customAppIconStyles, setCustomAppIconStyles] = useState<Record<string, CustomAppIconStyle>>({});
@@ -3826,7 +3814,6 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
           "--status-bar-drop": `${draftTheme.statusBarDropPx ?? 0}px`
         } as React.CSSProperties}
         data-hide-top-bar={draftTheme.hideTopBar ? "1" : "0"}
-        data-pwa-display-mode={pwaDisplayMode}
       >
         {/* User's global custom CSS is injected via useEffect into document.head */}
         <div className="phone-case">

@@ -27,6 +27,7 @@ import { Toggle } from "./ui/form";
 import { loadChatAppSettings, saveChatAppSettings } from "@/lib/chat-storage";
 import { loadKeepAlive, saveKeepAlive } from "@/lib/weixin-storage";
 import { BINDING_ACCENTS, CONTENT_APP_ACCENTS } from "@/lib/ui-accent-colors";
+import { PwaDisplaySetting } from "@/components/pwa-display-setting";
 
 export const SettingsContext = createContext<{
     setSubpageTitle: (title: string | null) => void;
@@ -109,7 +110,6 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
     const [promptViewerEnabled, setPromptViewerEnabled] = useState(false);
     const [quickActionEnabled, setQuickActionEnabled] = useState(false);
     const [keepAlive, setKeepAlive] = useState(false);
-    const [pwaDisplayMode, setPwaDisplayMode] = useState<"fullscreen" | "standalone">("standalone");
     // 角色电脑：施工中弹窗（返回 / 仍要看看）
     const [showAgentComputerGate, setShowAgentComputerGate] = useState(false);
     const pageBodyRef = useRef<HTMLDivElement | null>(null);
@@ -243,17 +243,6 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
         onNotice(next ? "已开启后台保活" : "已关闭后台保活");
     }, [onNotice]);
 
-    const handlePwaDisplayModeChange = useCallback((next: "fullscreen" | "standalone") => {
-        setPwaDisplayMode(next);
-        saveChatAppSettings({ ...loadChatAppSettings(), pwaDisplayMode: next });
-        // manifest 在 PWA 安装/更新时由浏览器以普通网络请求抓取，读不到 IndexedDB；
-        // 用 cookie 把偏好带给 manifest 路由（cookie 会随该请求自动发送）。
-        try {
-            document.cookie = `pwa_display_mode=${next}; path=/; max-age=31536000; samesite=lax`;
-        } catch {}
-        onNotice(next === "fullscreen" ? "已切换为全屏模式，刷新页面后重新添加到桌面生效" : "已切换为标准模式，刷新页面后重新添加到桌面生效");
-    }, [onNotice]);
-
     const imageGenerationItem = SETTINGS_MENU.find(i => i.id === "imageGeneration")!;
     const imageGenerationFeaturedItem: FeaturedCardItem = {
         id: imageGenerationItem.id,
@@ -341,7 +330,6 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
         setPromptViewerEnabled(settings.promptViewerEnabled === true);
         setQuickActionEnabled(settings.quickActionEnabled === true);
         setKeepAlive(loadKeepAlive());
-        setPwaDisplayMode(settings.pwaDisplayMode || "standalone");
     }, []);
 
     // Listen for mascot navigation mode (e.g. jump to worldbook/regex tab)
@@ -433,20 +421,7 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
                                 </div>
                                 <Toggle checked={keepAlive} onChange={handleKeepAliveChange} className="settings-toggle-control" />
                             </div>
-                            <div className="app-card card-featured settings-toggle-card">
-                                <span className="card-icon" style={realtimeIconStyle}>
-                                    <Layers size={22} strokeWidth={1.75} />
-                                </span>
-                                <div className="card-featured-body">
-                                    <div className="card-featured-label">PWA 沉浸全屏</div>
-                                    <div className="card-featured-desc">关闭后显示手机状态栏，避免安卓一直弹「全屏运行」提示；切换后需重新添加到桌面生效</div>
-                                </div>
-                                <Toggle
-                                    checked={pwaDisplayMode === "fullscreen"}
-                                    onChange={(v) => handlePwaDisplayModeChange(v ? "fullscreen" : "standalone")}
-                                    className="settings-toggle-control"
-                                />
-                            </div>
+                            <PwaDisplaySetting onNotice={onNotice} />
                         </div>
                         {isAdmin ? (
                             <div className="settings-moderation-section">

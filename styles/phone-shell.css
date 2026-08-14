@@ -155,18 +155,6 @@
 
 /* ── Status bar ── */
 
-/* 非沉浸 PWA 已由系统显示真实状态栏。聊天 App 不再重复绘制虚拟状态栏，
-   并把所有共用 PageShell / 聊天消息区的顶部安全区统一收紧。 */
-.phone-shell-wrap[data-pwa-display-mode="standalone"] .phone-shell[data-active-app="chat"] {
-  --safe-area-top: env(safe-area-inset-top, 0px);
-  --phone-titlebar-safe-top: env(safe-area-inset-top, 0px);
-  --page-header-safe-top: env(safe-area-inset-top, 0px);
-}
-
-.phone-shell-wrap[data-pwa-display-mode="standalone"] .phone-shell[data-active-app="chat"] > .phone-status-bar {
-  display: none;
-}
-
 /* --status-bar-color 跟随全局文字色，自动适应明暗背景 */
 .phone-shell {
   --status-bar-color: var(--c-text-title, #1a1a1a);
@@ -1069,6 +1057,29 @@
 /* ── Mobile responsive ── */
 
 @media (max-width: 500px) and (hover: none) and (pointer: coarse) {
+
+  /* 浏览器/PWA 已经显示真实状态栏时，所有 App 共用系统安全区，不再重复预留
+     48px 虚拟状态栏。进入真正的 fullscreen 后控制器会自动恢复原布局。 */
+  html[data-pwa-display-mode="standalone"] .phone-shell,
+  html[data-pwa-display-mode="minimal-ui"] .phone-shell,
+  html[data-pwa-display-mode="browser"] .phone-shell {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --phone-titlebar-safe-top: env(safe-area-inset-top, 0px);
+    --page-header-safe-top: env(safe-area-inset-top, 0px);
+    --home-grid-top-offset: calc(env(safe-area-inset-top, 0px) + 16px);
+  }
+
+  html[data-pwa-display-mode="standalone"] .phone-shell > .phone-status-bar,
+  html[data-pwa-display-mode="minimal-ui"] .phone-shell > .phone-status-bar,
+  html[data-pwa-display-mode="browser"] .phone-shell > .phone-status-bar {
+    display: none;
+  }
+
+  html[data-pwa-display-mode="standalone"] .phone-shell-wrap,
+  html[data-pwa-display-mode="minimal-ui"] .phone-shell-wrap,
+  html[data-pwa-display-mode="browser"] .phone-shell-wrap {
+    margin-top: 0;
+  }
 
   :root {
     --phone-screen-width: 100vw;
