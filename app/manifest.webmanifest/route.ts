@@ -12,20 +12,26 @@ export const runtime = "nodejs";
 // Takes effect only on (re)install.
 // 
 // User preference for PWA display mode (fullscreen vs standalone) is read from
-// a cookie set by the settings page. This allows users to choose whether to show
-// the system status bar without reinstalling the PWA on every settings change.
+// URL query parameter (?mode=standalone or ?mode=fullscreen). The settings page
+// generates a custom install link with the user's preference.
 export function GET(request: NextRequest) {
   const ua = request.headers.get("user-agent") || "";
   const isEdge = /Edg/i.test(ua);
 
-  // Read user preference from cookie (set by settings page)
-  const cookies = request.headers.get("cookie") || "";
-  const displayModeCookie = cookies.split(";").find(c => c.trim().startsWith("pwaDisplayMode="));
-  const userDisplayMode = displayModeCookie?.split("=")[1]?.trim();
+  // Read user preference from URL query parameter
+  const { searchParams } = new URL(request.url);
+  const userDisplayMode = searchParams.get("mode");
 
   let manifest = { ...baseManifest };
 
-  // Apply Edge-specific fixes first
+  // Apply user preference first if set
+  if (userDisplayMode === "fullscreen") {
+    manifest.display_override = ["fullscreen", "standalone"];
+  } else if (userDisplayMode === "standalone") {
+    manifest.display_override = ["standalone", "fullscreen"];
+  }
+
+  // Apply Edge-specific fixes (may override user preference for Edge)
   if (isEdge) {
     manifest = {
       ...manifest,
@@ -35,18 +41,11 @@ export function GET(request: NextRequest) {
     };
   }
 
-  // Apply user preference if set (overrides defaults)
-  if (userDisplayMode === "fullscreen") {
-    manifest.display_override = ["fullscreen", "standalone"];
-  } else if (userDisplayMode === "standalone") {
-    manifest.display_override = ["standalone", "fullscreen"];
-  }
-
   return new NextResponse(JSON.stringify(manifest), {
     headers: {
       "content-type": "application/manifest+json; charset=utf-8",
-      // Must vary by UA and cookie to serve correct manifest per user preference
-      "vary": "user-agent, cookie",
+      // Must vary by UA to serve correct manifest per browser
+      "vary": "user-agent",
       "cache-control": "no-store",
     },
   });

@@ -246,9 +246,7 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
     const handlePwaDisplayModeChange = useCallback((next: "fullscreen" | "standalone") => {
         setPwaDisplayMode(next);
         saveChatAppSettings({ ...loadChatAppSettings(), pwaDisplayMode: next });
-        // Set cookie for manifest route to read
-        document.cookie = `pwaDisplayMode=${next}; path=/; max-age=31536000; SameSite=Lax`;
-        onNotice(next === "fullscreen" ? "已切换为全屏模式，需重新添加到桌面后生效" : "已切换为标准模式，需重新添加到桌面后生效");
+        onNotice(next === "fullscreen" ? "已切换为全屏模式，刷新页面后重新添加到桌面生效" : "已切换为标准模式，刷新页面后重新添加到桌面生效");
     }, [onNotice]);
 
     const imageGenerationItem = SETTINGS_MENU.find(i => i.id === "imageGeneration")!;
@@ -430,23 +428,27 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
                                 </div>
                                 <Toggle checked={keepAlive} onChange={handleKeepAliveChange} className="settings-toggle-control" />
                             </div>
-                            <div className="app-card card-featured settings-toggle-card">
-                                <span className="card-icon" style={realtimeIconStyle}>
-                                    <Layers size={22} strokeWidth={1.75} />
-                                </span>
-                                <div className="card-featured-body">
-                                    <div className="card-featured-label">PWA 显示模式</div>
-                                    <div className="card-featured-desc">标准模式显示状态栏，全屏模式沉浸式体验</div>
+                            <div className="menu-group">
+                                <div className="menu-item settings-tools-menu-item">
+                                    <span className="card-icon" style={realtimeIconStyle}>
+                                        <Layers size={22} strokeWidth={1.75} />
+                                    </span>
+                                    <span className="settings-tools-menu-copy">
+                                        <span className="menu-label appearance-menu-item-label">PWA 显示模式</span>
+                                        <span className="menu-desc settings-tools-menu-desc">标准模式显示状态栏，全屏模式沉浸式体验</span>
+                                    </span>
+                                    <span className="menu-right">
+                                        <select 
+                                            value={pwaDisplayMode} 
+                                            onChange={(e) => handlePwaDisplayModeChange(e.target.value as "fullscreen" | "standalone")}
+                                            className="ui-select"
+                                            style={{ minWidth: "100px", fontSize: "14px" }}
+                                        >
+                                            <option value="standalone">标准</option>
+                                            <option value="fullscreen">全屏</option>
+                                        </select>
+                                    </span>
                                 </div>
-                                <select 
-                                    value={pwaDisplayMode} 
-                                    onChange={(e) => handlePwaDisplayModeChange(e.target.value as "fullscreen" | "standalone")}
-                                    className="ui-select"
-                                    style={{ minWidth: "120px" }}
-                                >
-                                    <option value="standalone">标准模式</option>
-                                    <option value="fullscreen">全屏模式</option>
-                                </select>
                             </div>
                         </div>
                         {isAdmin ? (
