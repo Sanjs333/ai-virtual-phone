@@ -109,6 +109,7 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
     const [promptViewerEnabled, setPromptViewerEnabled] = useState(false);
     const [quickActionEnabled, setQuickActionEnabled] = useState(false);
     const [keepAlive, setKeepAlive] = useState(false);
+    const [pwaDisplayMode, setPwaDisplayMode] = useState<"fullscreen" | "standalone">("standalone");
     // 角色电脑：施工中弹窗（返回 / 仍要看看）
     const [showAgentComputerGate, setShowAgentComputerGate] = useState(false);
     const pageBodyRef = useRef<HTMLDivElement | null>(null);
@@ -242,6 +243,14 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
         onNotice(next ? "已开启后台保活" : "已关闭后台保活");
     }, [onNotice]);
 
+    const handlePwaDisplayModeChange = useCallback((next: "fullscreen" | "standalone") => {
+        setPwaDisplayMode(next);
+        saveChatAppSettings({ ...loadChatAppSettings(), pwaDisplayMode: next });
+        // Set cookie for manifest route to read
+        document.cookie = `pwaDisplayMode=${next}; path=/; max-age=31536000; SameSite=Lax`;
+        onNotice(next === "fullscreen" ? "已切换为全屏模式，需重新添加到桌面后生效" : "已切换为标准模式，需重新添加到桌面后生效");
+    }, [onNotice]);
+
     const imageGenerationItem = SETTINGS_MENU.find(i => i.id === "imageGeneration")!;
     const imageGenerationFeaturedItem: FeaturedCardItem = {
         id: imageGenerationItem.id,
@@ -329,6 +338,7 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
         setPromptViewerEnabled(settings.promptViewerEnabled === true);
         setQuickActionEnabled(settings.quickActionEnabled === true);
         setKeepAlive(loadKeepAlive());
+        setPwaDisplayMode(settings.pwaDisplayMode || "standalone");
     }, []);
 
     // Listen for mascot navigation mode (e.g. jump to worldbook/regex tab)
@@ -419,6 +429,24 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
                                     <div className="card-featured-desc">切到后台时尽量保持网页运行，主动消息与轮询不中断</div>
                                 </div>
                                 <Toggle checked={keepAlive} onChange={handleKeepAliveChange} className="settings-toggle-control" />
+                            </div>
+                            <div className="app-card card-featured settings-toggle-card">
+                                <span className="card-icon" style={realtimeIconStyle}>
+                                    <Layers size={22} strokeWidth={1.75} />
+                                </span>
+                                <div className="card-featured-body">
+                                    <div className="card-featured-label">PWA 显示模式</div>
+                                    <div className="card-featured-desc">标准模式显示状态栏，全屏模式沉浸式体验</div>
+                                </div>
+                                <select 
+                                    value={pwaDisplayMode} 
+                                    onChange={(e) => handlePwaDisplayModeChange(e.target.value as "fullscreen" | "standalone")}
+                                    className="ui-select"
+                                    style={{ minWidth: "120px" }}
+                                >
+                                    <option value="standalone">标准模式</option>
+                                    <option value="fullscreen">全屏模式</option>
+                                </select>
                             </div>
                         </div>
                         {isAdmin ? (
