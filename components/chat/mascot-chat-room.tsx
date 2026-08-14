@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { AlertCircle, ChevronLeft, Code, Image as ImageIcon, MessageSquare, MoreHorizontal, RotateCcw, Trash2, UserRound } from "lucide-react";
+import { AlertCircle, ChevronLeft, Code, Image as ImageIcon, MessageSquare, MoreHorizontal, RotateCcw, Sparkles, Trash2, UserRound } from "lucide-react";
 import { PageShell } from "@/components/ui/page-shell";
 import { ConfirmDialog } from "@/components/ui/modal";
 import { MediaPreviewOverlay } from "@/components/chat/media-preview-overlay";
@@ -12,15 +12,16 @@ import CSSSchemeBar from "@/components/ui/css-scheme-picker";
 import { SessionCustomCSS } from "@/components/ui/session-custom-css";
 import { CHAT_SESSION_CSS_EXAMPLE } from "@/lib/css-examples";
 import {
+    appendMascotMessage,
     clearMascotToolHistoryMessages,
     createMascotSession,
     deleteMascotMessageWithLinkedTools,
     deleteMascotSession,
+    generateMascotReply,
     getMascotChatSnapshot,
     hasMascotToolHistoryMessages,
     hydrateMascotChat,
     renameMascotSession,
-    sendMascotMessage,
     setMascotMessages,
     stopMascotGeneration,
     subscribeMascotChat,
@@ -490,6 +491,8 @@ export function MascotChatRoom({ onBack, onDeleted }: MascotChatRoomProps) {
         allVisibleMessageEntries.slice(-visibleMascotMessageCount)
     ), [allVisibleMessageEntries, visibleMascotMessageCount]);
     const hasMoreMascotMessages = allVisibleMessageEntries.length > visibleMessageEntries.length;
+    const latestVisibleChatMessage = [...chat.messages].reverse().find((msg) => !msg.hidden && msg.role !== "tool");
+    const canGenerateReply = !chat.isThinking && latestVisibleChatMessage?.role === "user";
     const scrollSignature = useMemo(() => {
         const last = visibleMessageEntries[visibleMessageEntries.length - 1]?.msg;
         const lastText = last ? getMascotMessageText(last) : "";
@@ -689,7 +692,13 @@ export function MascotChatRoom({ onBack, onDeleted }: MascotChatRoomProps) {
         const images = pendingImages;
         setPendingImages([]);
         setShowEmojiPanel(false);
-        await sendMascotMessage({ text, images, context });
+        await appendMascotMessage({ text, images });
+    };
+
+    const handleGenerateReply = async () => {
+        if (!canGenerateReply) return;
+        setShowEmojiPanel(false);
+        await generateMascotReply({ context });
     };
 
     const closeMascotContextMenu = useCallback(() => {
@@ -1184,6 +1193,16 @@ export function MascotChatRoom({ onBack, onDeleted }: MascotChatRoomProps) {
                         ) : (
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                         )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => void handleGenerateReply()}
+                        disabled={!canGenerateReply}
+                        className="ui-bare-btn text-[var(--c-text)]"
+                        aria-label="生成回复"
+                        title="生成回复"
+                    >
+                        <Sparkles size={24} strokeWidth={1.5} />
                     </button>
                 </div>
                 {showEmojiPanel && <EmojiPanel onSelect={appendEmoji} />}
