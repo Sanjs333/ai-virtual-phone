@@ -1,5 +1,13 @@
 export type PwaDisplayPreference = "fullscreen" | "standalone";
 export type RuntimePwaDisplayMode = "fullscreen" | "standalone" | "minimal-ui" | "browser";
+export type PwaHostedSurface = "custom-app" | "game";
+
+export type PwaHostedSafeArea = {
+  top: string;
+  right: string;
+  bottom: string;
+  left: string;
+};
 
 export const PWA_DISPLAY_MODE_COOKIE = "pwa_display_mode";
 export const PWA_DISPLAY_MODE_CHANGED_EVENT = "pwa-display-mode-changed";
@@ -49,4 +57,19 @@ export function getRuntimePwaDisplayMode(): RuntimePwaDisplayMode {
 
   const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
   return navigatorWithStandalone.standalone ? "standalone" : "browser";
+}
+
+/** Safe-area values injected into sandboxed apps, which cannot inherit host CSS variables. */
+export function getPwaHostedSafeArea(surface: PwaHostedSurface, embedded = false): PwaHostedSafeArea {
+  if (embedded) {
+    return { top: "0px", right: "0px", bottom: "0px", left: "0px" };
+  }
+
+  const nonImmersive = getRuntimePwaDisplayMode() !== "fullscreen";
+  return {
+    top: nonImmersive ? (surface === "game" ? "60px" : "48px") : "88px",
+    right: "16px",
+    bottom: "24px",
+    left: "16px",
+  };
 }

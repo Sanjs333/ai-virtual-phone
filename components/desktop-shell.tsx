@@ -588,6 +588,15 @@ function sanitizeDesktopFolders(
       continue;
     }
     nextFolders[folderId] = members.length === folder.icons.length ? folder : { ...folder, icons: members };
+    // 崩溃等意外可能造成"文件夹记录在、格子却不在任何页面"：成员被文件夹托管着，
+    // 桌面上却什么都不渲染，默认图标兜底又把成员算作"已放置"——图标就永久隐身了
+    //（用户表现：某图标凭空消失，恢复默认布局才回来）。这里把格子就近放回页面自愈。
+    const tilePlaced = getDesktopIconLayoutItems(nextLayout).some(ic => ic.id === folderId);
+    if (!tilePlaced) {
+      if (nextLayout === layout) nextLayout = cloneDesktopLayout(layout, widgets);
+      placeIconOnAvailablePage(nextLayout, widgets, { id: folderId as DesktopIconId, row: 1, col: 1 }, 1);
+      changed = true;
+    }
   }
   if (!changed) return { folders, layout, changed: false };
   return { folders: nextFolders, layout: trimEmptyTrailingPages(nextLayout, widgets), changed: true };
@@ -831,7 +840,7 @@ function shouldBypassDesktopItemPointerCapture(target: EventTarget | null): bool
   return isKeyboardEditableElement(target);
 }
 
-function useAndroidCaretKeyboardLift() {
+function useMobileVisualViewportHeight() {
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
 
@@ -897,7 +906,7 @@ export function DesktopShell({ initialThemeProfile, initialThemeAssets }: Deskto
   const handleMusicOverlayControllerChange = useCallback((controller: MusicOverlayController | null) => {
     musicOverlayControllerRef.current = controller;
   }, []);
-  useAndroidCaretKeyboardLift();
+  useMobileVisualViewportHeight();
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [layout, setLayout] = useState<DesktopLayout>(DEFAULT_LAYOUT);
   // Dock is an ordered icon-id list (max DOCK_MAX), kept disjoint from `layout`.

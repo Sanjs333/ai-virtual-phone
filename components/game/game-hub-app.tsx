@@ -88,6 +88,7 @@ import type { LLMMessage } from "@/lib/llm-prompt-assembler";
 import { resolveUserIdentity } from "@/lib/settings-storage";
 import { incrementEventCounter } from "@/lib/memory-storage";
 import { maybeRunSummarization } from "@/lib/memory-summarizer";
+import { getPwaHostedSafeArea, PWA_DISPLAY_MODE_CHANGED_EVENT } from "@/lib/pwa-display-mode";
 import { IFRAME_ERROR_CAPTURE_SCRIPT } from "@/lib/qa-iframe-error-bridge";
 
 type GameMainView = "hall" | "library" | "studio";
@@ -437,6 +438,16 @@ ${body}
   window.addEventListener('message', function(event){
     var data = event.data || {};
     if (data.source !== 'ai-phone-game-host' || data.id !== frameId) return;
+    if (data.type === 'layout.safe-area' && data.safeArea) {
+      var safeArea = data.safeArea;
+      var root = document.documentElement;
+      root.style.setProperty('--ai-phone-game-safe-top', String(safeArea.top || '0px'));
+      root.style.setProperty('--ai-phone-game-safe-right', String(safeArea.right || '0px'));
+      root.style.setProperty('--ai-phone-game-safe-bottom', String(safeArea.bottom || '0px'));
+      root.style.setProperty('--ai-phone-game-safe-left', String(safeArea.left || '0px'));
+      window.dispatchEvent(new CustomEvent('aiphone:safe-area-change', { detail: safeArea }));
+      return;
+    }
     if (data.type === 'event' && data.event) {
       var handlers = (eventHandlers[data.event] || []).concat(eventHandlers['*'] || []);
       handlers.forEach(function(handler){
@@ -528,6 +539,25 @@ function GameIframe({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [frameId] = useState(() => `game_frame_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
   const srcDoc = useMemo(() => createGameFrameSrcDoc(html, frameId), [frameId, html]);
+  const syncHostedSafeArea = useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage({
+      source: "ai-phone-game-host",
+      type: "layout.safe-area",
+      id: frameId,
+      safeArea: getPwaHostedSafeArea("game"),
+    }, "*");
+  }, [frameId]);
+
+  useEffect(() => {
+    window.addEventListener(PWA_DISPLAY_MODE_CHANGED_EVENT, syncHostedSafeArea);
+    document.addEventListener("fullscreenchange", syncHostedSafeArea);
+    window.addEventListener("pageshow", syncHostedSafeArea);
+    return () => {
+      window.removeEventListener(PWA_DISPLAY_MODE_CHANGED_EVENT, syncHostedSafeArea);
+      document.removeEventListener("fullscreenchange", syncHostedSafeArea);
+      window.removeEventListener("pageshow", syncHostedSafeArea);
+    };
+  }, [syncHostedSafeArea]);
 
   useEffect(() => {
     if (!registerEventSender) return;
@@ -587,6 +617,7 @@ function GameIframe({
       className="game-hub-frame"
       sandbox={allowExternalControl ? "allow-scripts allow-same-origin" : "allow-scripts"}
       allow="autoplay"
+      onLoad={syncHostedSafeArea}
       srcDoc={srcDoc}
     />
   );

@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 // but ONLY for Edge, so Chrome/others keep the fully immersive `standalone` look.
 // The manifest is fetched per browser at install time, so UA sniffing here works.
 // Takes effect only on (re)install.
-// 
+//
 // An explicit cookie can override the install mode. With no cookie, keep the
 // upstream behavior so existing installs and users are not silently changed.
 export function GET(request: NextRequest) {

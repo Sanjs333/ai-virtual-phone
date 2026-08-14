@@ -1560,7 +1560,7 @@
 
 .game-runtime-floating-back {
   position: absolute;
-  top: max(38px, calc(env(safe-area-inset-top, 0px) + 8px));
+  top: max(8px, calc(var(--page-header-safe-top, 48px) - 10px));
   left: max(14px, calc(env(safe-area-inset-left, 0px) + 14px));
   z-index: 8;
   width: 44px;

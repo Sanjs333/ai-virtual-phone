@@ -18,6 +18,7 @@ import { OnlineRoomConnection, onlineCloudApi } from "@/lib/online-room-client";
 import { submitContentReport } from "@/lib/moderation-client";
 import { hydrateKvDb } from "@/lib/kv-db";
 import { ensureSettingsStorageHydrated } from "@/lib/settings-storage";
+import { getPwaHostedSafeArea, PWA_DISPLAY_MODE_CHANGED_EVENT } from "@/lib/pwa-display-mode";
 import {
   addChatContact,
   CHAT_MESSAGE_PUSHED_EVENT,
@@ -169,6 +170,16 @@ html, body { min-height: 100%; }
   window.addEventListener('message', function(event){
     var data = event.data || {};
     if (data.source !== 'ai-phone-custom-app-host' || data.frameId !== frameId) return;
+    if (data.type === 'layout.safe-area' && data.safeArea) {
+      var safeArea = data.safeArea;
+      var root = document.documentElement;
+      root.style.setProperty('--ai-phone-app-safe-top', String(safeArea.top || '0px'));
+      root.style.setProperty('--ai-phone-app-safe-right', String(safeArea.right || '0px'));
+      root.style.setProperty('--ai-phone-app-safe-bottom', String(safeArea.bottom || '0px'));
+      root.style.setProperty('--ai-phone-app-safe-left', String(safeArea.left || '0px'));
+      window.dispatchEvent(new CustomEvent('aiphone:safe-area-change', { detail: safeArea }));
+      return;
+    }
     if (data.type === 'tool.invoke' && data.toolRequestId) {
       var handlerKey = String(data.handler || data.toolId || data.toolName || '').trim();
       var handler = toolHandlers[handlerKey] || toolHandlers[String(data.toolId || '')] || toolHandlers[String(data.toolName || '')];
@@ -734,6 +745,14 @@ export function CustomAppRunner({
   const isBackgroundRunner = Boolean(backgroundEvent || backgroundTool);
   const effectiveEmbedded = embedded || isBackgroundRunner;
   const srcDoc = useMemo(() => createCustomAppSrcDoc(app, frameId, launchContext, effectiveEmbedded), [app, frameId, launchContext, effectiveEmbedded]);
+  const syncHostedSafeArea = useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage({
+      source: "ai-phone-custom-app-host",
+      type: "layout.safe-area",
+      frameId,
+      safeArea: getPwaHostedSafeArea("custom-app", effectiveEmbedded),
+    }, "*");
+  }, [effectiveEmbedded, frameId]);
   const declaredEvents = useMemo(() => getCustomAppDeclaredEventNames(app), [app]);
   const declaredToolKeys = useMemo(() => getCustomAppDeclaredToolKeys(app), [app]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -744,6 +763,17 @@ export function CustomAppRunner({
   const closeLabel = launchSource === "chat_plus_action" || launchSource === "chat_card" || launchSource === "chat_directive"
     ? "返回聊天室"
     : "返回桌面";
+
+  useEffect(() => {
+    window.addEventListener(PWA_DISPLAY_MODE_CHANGED_EVENT, syncHostedSafeArea);
+    document.addEventListener("fullscreenchange", syncHostedSafeArea);
+    window.addEventListener("pageshow", syncHostedSafeArea);
+    return () => {
+      window.removeEventListener(PWA_DISPLAY_MODE_CHANGED_EVENT, syncHostedSafeArea);
+      document.removeEventListener("fullscreenchange", syncHostedSafeArea);
+      window.removeEventListener("pageshow", syncHostedSafeArea);
+    };
+  }, [syncHostedSafeArea]);
 
   const getFrameAudioChannel = useCallback((name: string): FrameAudioChannel => {
     let entry = frameAudioChannelsRef.current.get(name);
@@ -1819,6 +1849,7 @@ export function CustomAppRunner({
         className="custom-app-runner-frame"
         sandbox="allow-scripts allow-downloads"
         allow="autoplay"
+        onLoad={syncHostedSafeArea}
         srcDoc={bridgeReady ? srcDoc : EMPTY_CUSTOM_APP_SRC_DOC}
       />
 
