@@ -183,6 +183,7 @@ function findBgElements(shell: HTMLElement, activeApp: string | null): HTMLEleme
   const selectors = [
     '[class*="session-"]',        // 聊天室（z-20，最上层）
     '.qa-app-shell',               // 工坊
+    '.reading-app-surface',        // 阅读书架/阅读器（暖黄色背景）
     '.page-body',                  // 页面内容底色（page-shell 自身通常透明）
     '.page-shell',                // 设置/外观/资源库
     '[class*="char-page"]',       // 角色管理
