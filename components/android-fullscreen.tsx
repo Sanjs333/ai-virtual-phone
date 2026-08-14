@@ -16,6 +16,19 @@ export function AndroidFullscreen() {
     ).matches;
     if (!isMobile) return;
 
+    // Read user preference: if they turned off immersive fullscreen, respect it.
+    let userWantsFullscreen = true;
+    try {
+      const settings = localStorage.getItem("chatAppSettings");
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        // "fullscreen" means immersive; "standalone" or absent means show status bar.
+        userWantsFullscreen = parsed.pwaDisplayMode === "fullscreen";
+      }
+    } catch {}
+
+    if (!userWantsFullscreen) return;
+
     function tryFullscreen() {
       const doc = document.documentElement;
       if (document.fullscreenElement) return;
