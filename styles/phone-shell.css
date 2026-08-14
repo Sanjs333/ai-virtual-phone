@@ -1058,22 +1058,45 @@
 
 @media (max-width: 500px) and (hover: none) and (pointer: coarse) {
 
+  /* 浏览器/PWA 已经显示真实状态栏时，所有 App 共用系统安全区，不再重复预留
+     48px 虚拟状态栏。进入真正的 fullscreen 后控制器会自动恢复原布局。 */
+  html[data-pwa-display-mode="standalone"] .phone-shell,
+  html[data-pwa-display-mode="minimal-ui"] .phone-shell,
+  html[data-pwa-display-mode="browser"] .phone-shell {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --phone-titlebar-safe-top: env(safe-area-inset-top, 0px);
+    --page-header-safe-top: env(safe-area-inset-top, 0px);
+    --home-grid-top-offset: calc(env(safe-area-inset-top, 0px) + 16px);
+  }
+
+  html[data-pwa-display-mode="standalone"] .phone-shell > .phone-status-bar,
+  html[data-pwa-display-mode="minimal-ui"] .phone-shell > .phone-status-bar,
+  html[data-pwa-display-mode="browser"] .phone-shell > .phone-status-bar {
+    display: none;
+  }
+
+  html[data-pwa-display-mode="standalone"] .phone-shell-wrap,
+  html[data-pwa-display-mode="minimal-ui"] .phone-shell-wrap,
+  html[data-pwa-display-mode="browser"] .phone-shell-wrap {
+    margin-top: 0;
+  }
+
   :root {
     --phone-screen-width: 100vw;
-    --phone-screen-height: 100lvh;
+    --phone-screen-height: var(--mobile-visible-height, 100lvh);
   }
 
   html,
   body {
     overflow: hidden;
     width: 100%;
-    height: 100lvh;
+    height: var(--mobile-visible-height, 100lvh);
     background: var(--c-page-body-bg);
   }
 
   .app-root {
     width: 100vw;
-    height: 100lvh;
+    height: var(--mobile-visible-height, 100lvh);
     padding: 0;
     display: flex;
     justify-content: flex-start;
@@ -1099,9 +1122,6 @@
        .app-root 被裁掉，底部栏随之顶回可视区。上移量可在「状态栏」弹窗里按设备调节，
        让它约等于真实状态栏高度即可铺满。0 = 不上移（iOS 等能全屏的浏览器保持 0）。 */
     margin-top: calc(-1 * var(--status-bar-drop, 0px));
-    transform: translate3d(0, calc(-1 * var(--mobile-keyboard-lift, 0px)), 0);
-    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-    will-change: transform;
   }
 
   .phone-shell-wrap .phone-case {
@@ -1129,7 +1149,7 @@
 
   .app-root.splash-root {
     width: 100vw;
-    height: 100lvh;
+    height: var(--mobile-visible-height, 100lvh);
     margin: 0;
     padding: 0;
     display: flex;
