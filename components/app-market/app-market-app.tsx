@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import {
   BookOpen,
   CheckCircle2,
@@ -301,7 +302,8 @@ function AppIcon({ iconDataUrl, seed = "", className = "" }: {
   );
 }
 
-export function AppMarketApp({ onClose, onOpenCustomApp, onInstallToDesktop, onNotice, launchContext }: AppMarketAppProps) {
+export function AppMarketApp({ onClose: _onClose, onOpenCustomApp, onInstallToDesktop, onNotice, launchContext }: AppMarketAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const repackInputRef = useRef<HTMLInputElement | null>(null);
   const manualLoadSeqRef = useRef(0);
@@ -1062,10 +1064,67 @@ export function AppMarketApp({ onClose, onOpenCustomApp, onInstallToDesktop, onN
   const selectedInstalledMarketItem = selectedInstalledApp ? marketItemByAppId.get(selectedInstalledApp.id) ?? null : null;
   const selectedInstalledUpdating = Boolean(selectedInstalledApp && updatingInstalledId === selectedInstalledApp.id);
 
+  usePhoneBackHandler(Boolean(
+    errorDialog || reportTarget || confirmDelete || confirmMarketDelete || iconStyleEditorOpen
+    || creatorGuideOpen || pendingApp || manualBuilderOpen || selectedMarketApp || selectedInstalledApp
+    || marketEditTarget || localEditTarget || repackTarget || localPublishSource
+  ), () => {
+    if (errorDialog) {
+      setErrorDialog(null);
+      return;
+    }
+    if (reportTarget) {
+      setReportTarget(null);
+      return;
+    }
+    if (confirmDelete) {
+      setConfirmDelete(null);
+      return;
+    }
+    if (confirmMarketDelete) {
+      setConfirmMarketDelete(null);
+      return;
+    }
+    if (iconStyleEditorOpen) {
+      setIconStyleEditorOpen(false);
+      return;
+    }
+    if (creatorGuideOpen) {
+      setCreatorGuideOpen(false);
+      return;
+    }
+    if (pendingApp) {
+      closePendingSheet();
+      return;
+    }
+    if (manualBuilderOpen) {
+      closeManualBuilder();
+      return;
+    }
+    if (selectedMarketApp) {
+      setSelectedMarketApp(null);
+      return;
+    }
+    if (selectedInstalledApp) {
+      setSelectedInstalledApp(null);
+      return;
+    }
+    if (repackTarget) {
+      setRepackTarget(null);
+      return;
+    }
+    if (localPublishSource) {
+      setLocalPublishSource(null);
+      return;
+    }
+    setMarketEditTarget(null);
+    setLocalEditTarget(null);
+  });
+
   return (
     <div className="app-market-app">
       <header className="app-market-header">
-        <button type="button" className="app-market-icon-btn" onClick={onClose} aria-label="返回桌面">
+        <button type="button" className="app-market-icon-btn" onClick={requestPhoneBack} aria-label="返回桌面">
           <ChevronLeft size={25} />
         </button>
         <div className="app-market-title">

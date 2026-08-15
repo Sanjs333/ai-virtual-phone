@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -689,7 +690,8 @@ function QaRepoSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () =>
 
 // ── App 本体 ─────────────────────────────────────────
 
-export function PhoneQaApp({ onClose, onNotice }: PhoneQaAppProps) {
+export function PhoneQaApp({ onClose: _onClose, onNotice }: PhoneQaAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const snapshot = useSyncExternalStore(subscribeQaChat, getQaChatSnapshot, getQaChatSnapshot);
   const [input, setInput] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -765,6 +767,37 @@ export function PhoneQaApp({ onClose, onNotice }: PhoneQaAppProps) {
     () => (previewItem?.type === "app" ? getInstalledCustomApp(previewItem.refId) : null),
     [previewItem],
   );
+
+  usePhoneBackHandler(Boolean(
+    previewItem || previewOpen || viewerImage || clearToolsOpen || settingsOpen
+    || repoSheetOpen || drawerOpen
+  ), () => {
+    if (previewItem) {
+      setPreviewItem(null);
+      return;
+    }
+    if (viewerImage) {
+      setViewerImage(null);
+      return;
+    }
+    if (clearToolsOpen) {
+      setClearToolsOpen(false);
+      return;
+    }
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return;
+    }
+    if (repoSheetOpen) {
+      setRepoSheetOpen(false);
+      return;
+    }
+    if (previewOpen) {
+      setPreviewOpen(false);
+      return;
+    }
+    setDrawerOpen(false);
+  }, 10);
 
   // 自动滚动：用户上滚阅读时不拉回底部
   const handleScroll = useCallback(() => {
@@ -849,7 +882,7 @@ export function PhoneQaApp({ onClose, onNotice }: PhoneQaAppProps) {
       <div className="qa-ambient" aria-hidden />
       <header className="qa-header">
         <div className="qa-header-left">
-          <button type="button" className="qa-icon-btn" onClick={onClose} aria-label="返回">
+          <button type="button" className="qa-icon-btn" onClick={requestPhoneBack} aria-label="返回">
             <ChevronLeft size={22} strokeWidth={1.75} />
           </button>
         </div>
@@ -1069,11 +1102,11 @@ export function PhoneQaApp({ onClose, onNotice }: PhoneQaAppProps) {
       )}
 
       {settingsOpen && (
-        <QaSettingsSheet onClose={() => setSettingsOpen(false)} onNotice={onNotice} />
+        <QaSettingsSheet onClose={requestPhoneBack} onNotice={onNotice} />
       )}
 
       {repoSheetOpen && (
-        <QaRepoSheet onClose={() => setRepoSheetOpen(false)} onSaved={refreshComposerMeta} />
+        <QaRepoSheet onClose={requestPhoneBack} onSaved={refreshComposerMeta} />
       )}
 
       {previewOpen && !previewItem && (
@@ -1113,19 +1146,19 @@ export function PhoneQaApp({ onClose, onNotice }: PhoneQaAppProps) {
         <div className="qa-preview-runtime">
           {previewItem.type === "app" ? (
             previewApp ? (
-              <CustomAppRunner app={previewApp} onClose={() => setPreviewItem(null)} />
+              <CustomAppRunner app={previewApp} onClose={requestPhoneBack} />
             ) : (
               <div className="qa-preview-missing">
                 <p>这个应用已被卸载或找不到了。</p>
-                <button type="button" className="qa-sheet-btn is-primary" onClick={() => setPreviewItem(null)}>
+                <button type="button" className="qa-sheet-btn is-primary" onClick={requestPhoneBack}>
                   返回
                 </button>
               </div>
             )
           ) : previewItem.type === "game" ? (
-            <GameHubApp onClose={() => setPreviewItem(null)} autoOpenLocalId={previewItem.refId} />
+            <GameHubApp onClose={requestPhoneBack} autoOpenLocalId={previewItem.refId} />
           ) : (
-            <BlackMarketApp onClose={() => setPreviewItem(null)} autoOpenLocalId={previewItem.refId} />
+            <BlackMarketApp onClose={requestPhoneBack} autoOpenLocalId={previewItem.refId} />
           )}
         </div>
       )}

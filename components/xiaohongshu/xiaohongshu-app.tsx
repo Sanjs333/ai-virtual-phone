@@ -73,6 +73,7 @@ import {
 import { resolveCharacterXiaohongshuDisplayName } from "@/lib/xiaohongshu-character-profile";
 import type { ChatSharePayload } from "@/lib/chat-share";
 import { CheckPhoneDebugErrorCard } from "@/components/checkphone/checkphone-debug-error-card";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import {
   DEFAULT_XIAOHONGSHU_SETTINGS,
   type ParsedXiaohongshuCharacterActivity,
@@ -667,7 +668,8 @@ function CommentList({
   );
 }
 
-export function XiaohongshuApp({ onClose, onNotice, visible = true, onIdle, onBusyChange }: XiaohongshuAppProps) {
+export function XiaohongshuApp({ onClose: _onClose, onNotice, visible = true, onIdle, onBusyChange }: XiaohongshuAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const [state, setState] = useState<XiaohongshuState>(() => loadXiaohongshuState());
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedTab, setSelectedTab] = useState<XiaohongshuTabId>("home");
@@ -723,7 +725,7 @@ export function XiaohongshuApp({ onClose, onNotice, visible = true, onIdle, onBu
   const mainScrollTopRef = useRef(0);
 
   const selectedNote = selectedNoteId ? state.notes.find(note => note.id === selectedNoteId) ?? null : null;
-  const requestClose = () => onClose(busy !== "idle");
+  const requestClose = () => requestPhoneBack();
   const commentComposerExpanded = commentComposerFocused || Boolean(commentDraft.trim()) || Boolean(replyTarget) || commentEmojiOpen || commentMentionOpen;
   const unreadCount = state.notifications.reduce((total, item) => total + notificationUnreadWeight(item), 0);
   const engagementUnreadCount = state.notifications.reduce((total, item) => {
@@ -765,6 +767,51 @@ export function XiaohongshuApp({ onClose, onNotice, visible = true, onIdle, onBu
   const isMessageSubpage = selectedTab === "messages" && (Boolean(messagePanel) || Boolean(selectedDmThread));
   const selectedAuthorAccount = selectedNote ? makeAccountFromNote(selectedNote) : null;
   const selectedAuthorFollowing = isFollowingAccount(selectedAuthorAccount);
+
+  usePhoneBackHandler(Boolean(selectedNoteId || selectedDmThreadId || messagePanel), () => {
+    if (selectedNoteId) {
+      setSelectedNoteId(null);
+      return;
+    }
+    if (selectedDmThreadId) {
+      setSelectedDmThreadId(null);
+      return;
+    }
+    setMessagePanel(null);
+  }, -100);
+  usePhoneBackHandler(Boolean(
+    settingsOpen || profileOpen || composeOpen || videoCommentsOpen || deleteTarget || pendingFeedAction
+    || dmEmojiOpen || commentEmojiOpen || commentMentionOpen || replyTarget
+  ), () => {
+    if (deleteTarget) {
+      setDeleteTarget(null);
+      return;
+    }
+    if (pendingFeedAction) {
+      setPendingFeedAction(null);
+      return;
+    }
+    if (composeOpen) {
+      setComposeOpen(false);
+      return;
+    }
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return;
+    }
+    if (profileOpen) {
+      setProfileOpen(false);
+      return;
+    }
+    if (videoCommentsOpen) {
+      setVideoCommentsOpen(false);
+      return;
+    }
+    setDmEmojiOpen(false);
+    setCommentEmojiOpen(false);
+    setCommentMentionOpen(false);
+    setReplyTarget(null);
+  });
 
   useEffect(() => {
     const isBusy = busy !== "idle";
@@ -2397,10 +2444,7 @@ export function XiaohongshuApp({ onClose, onNotice, visible = true, onIdle, onBu
           <button
             type="button"
             className="cp-float-back"
-            onClick={isMessageSubpage ? () => {
-              setMessagePanel(null);
-              setSelectedDmThreadId(null);
-            } : requestClose}
+            onClick={requestPhoneBack}
             aria-label={isMessageSubpage ? "返回消息" : "返回桌面"}
           >
             <ChevronLeft size={24} strokeWidth={2} />
@@ -2475,7 +2519,7 @@ export function XiaohongshuApp({ onClose, onNotice, visible = true, onIdle, onBu
         {selectedDmThread ? (
           <div className="cp-xhs-thread-screen xhs-dm-thread-screen">
             <header className="cp-xhs-thread-appbar">
-              <button type="button" className="cp-xhs-thread-nav-button" onClick={() => setSelectedDmThreadId(null)} aria-label="返回消息">
+              <button type="button" className="cp-xhs-thread-nav-button" onClick={requestPhoneBack} aria-label="返回消息">
                 <ChevronLeft size={26} strokeWidth={2.4} />
               </button>
               <div className="cp-xhs-thread-title-block">
@@ -2575,7 +2619,7 @@ export function XiaohongshuApp({ onClose, onNotice, visible = true, onIdle, onBu
             onTouchCancel={handleVideoTouchEnd}
           >
             <header className="cp-xhs-video-detail-topbar">
-              <button type="button" onClick={() => setSelectedNoteId(null)} aria-label="返回">
+              <button type="button" onClick={requestPhoneBack} aria-label="返回">
                 <ChevronLeft size={26} strokeWidth={2} />
               </button>
               <button type="button" aria-label="更多视频">

@@ -16,10 +16,12 @@ import {
     saveReadingCustomFont,
     type ReadingAppearance,
 } from "@/lib/reading-appearance";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type Props = { onClose: () => void };
 
 export default function ReadingApp({ onClose }: Props) {
+    const requestPhoneBack = usePhoneBack();
     const [ready, setReady] = useState(false);
     const [activeBook, setActiveBook] = useState<Book | null>(null);
     const [appearance, setAppearance] = useState<ReadingAppearance>(DEFAULT_READING_APPEARANCE);
@@ -30,6 +32,8 @@ export default function ReadingApp({ onClose }: Props) {
     const backgroundUrlRef = useRef<string | null>(null);
     const customFontUrlRef = useRef<string | null>(null);
     if (activeBook) lastBookRef.current = activeBook;
+
+    usePhoneBackHandler(Boolean(activeBook), () => setActiveBook(null));
 
     const updateBackgroundUrl = (nextUrl: string | null) => {
         if (backgroundUrlRef.current && backgroundUrlRef.current !== nextUrl) {
@@ -107,11 +111,11 @@ export default function ReadingApp({ onClose }: Props) {
     };
 
     const appearanceStyle = {
-        ["--reading-font-family" as "--reading-font-family"]: resolveReadingFontFamily(appearance.fontFamily, customFontFamily),
-        ["--reading-font-size" as "--reading-font-size"]: `${appearance.fontSize}px`,
-        ["--reading-text-color" as "--reading-text-color"]: appearance.textColor,
-        ["--reading-line-height" as "--reading-line-height"]: String(appearance.lineHeight),
-        ["--reading-bg-image" as "--reading-bg-image"]: backgroundUrl ? `url("${backgroundUrl}")` : "none",
+        "--reading-font-family": resolveReadingFontFamily(appearance.fontFamily, customFontFamily),
+        "--reading-font-size": `${appearance.fontSize}px`,
+        "--reading-text-color": appearance.textColor,
+        "--reading-line-height": String(appearance.lineHeight),
+        "--reading-bg-image": backgroundUrl ? `url("${backgroundUrl}")` : "none",
     } as CSSProperties;
     const hiddenViewerStyle = {
         position: "absolute",
@@ -135,7 +139,7 @@ export default function ReadingApp({ onClose }: Props) {
             )}
             {lastBookRef.current && (
                 <div style={activeBook ? undefined : hiddenViewerStyle} aria-hidden={!activeBook}>
-                    <ReadingViewer book={lastBookRef.current} onBack={() => setActiveBook(null)} />
+                    <ReadingViewer book={lastBookRef.current} onBack={requestPhoneBack} />
                 </div>
             )}
         </div>

@@ -90,6 +90,7 @@ import { incrementEventCounter } from "@/lib/memory-storage";
 import { maybeRunSummarization } from "@/lib/memory-summarizer";
 import { getPwaHostedSafeArea, PWA_DISPLAY_MODE_CHANGED_EVENT } from "@/lib/pwa-display-mode";
 import { IFRAME_ERROR_CAPTURE_SCRIPT } from "@/lib/qa-iframe-error-bridge";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type GameMainView = "hall" | "library" | "studio";
 type GameStudioMode = "published" | "drafts";
@@ -753,7 +754,8 @@ function draftFromTemplate(template: GameTemplate): GameTemplateDraft {
   };
 }
 
-export function GameHubApp({ onClose, autoOpenLocalId }: { onClose: () => void; autoOpenLocalId?: string }) {
+export function GameHubApp({ onClose: _onClose, autoOpenLocalId }: { onClose: () => void; autoOpenLocalId?: string }) {
+  const requestPhoneBack = usePhoneBack();
   const { account } = useAccount();
   const [mainView, setMainView] = useState<GameMainView>("hall");
   const [studioMode, setStudioMode] = useState<GameStudioMode>("drafts");
@@ -1771,6 +1773,70 @@ export function GameHubApp({ onClose, autoOpenLocalId }: { onClose: () => void; 
     }
   }
 
+  usePhoneBackHandler(Boolean(selectedTemplate || creatorPageOpen || runtimeGame), () => {
+    if (runtimeGame) {
+      closeRuntime();
+      return;
+    }
+    if (selectedTemplate) {
+      closeTemplateDetails();
+      return;
+    }
+    closeCreatorPage();
+  }, 20);
+
+  usePhoneBackHandler(Boolean(
+    commentDeleteTarget || commentMenu || coverDeleteConfirmOpen || profileEditorOpen
+    || collectionPickerTemplate || deleteCollectionTarget || collectionDeleteBlockedOpen
+    || newCollectionOpen || communityErrorDialog || creatorGuideOpen
+    || collectionMenuId || studioMenuId || recordMenuId
+  ), () => {
+    if (commentDeleteTarget) {
+      setCommentDeleteTarget(null);
+      return;
+    }
+    if (commentMenu) {
+      setCommentMenu(null);
+      return;
+    }
+    if (coverDeleteConfirmOpen) {
+      setCoverDeleteConfirmOpen(false);
+      return;
+    }
+    if (profileEditorOpen) {
+      closeProfileEditor();
+      return;
+    }
+    if (collectionPickerTemplate) {
+      closeCollectionPicker();
+      return;
+    }
+    if (deleteCollectionTarget) {
+      setDeleteCollectionTarget(null);
+      return;
+    }
+    if (collectionDeleteBlockedOpen) {
+      setCollectionDeleteBlockedOpen(false);
+      return;
+    }
+    if (newCollectionOpen) {
+      setNewCollectionOpen(false);
+      setNewCollectionName("");
+      return;
+    }
+    if (communityErrorDialog) {
+      setCommunityErrorDialog(null);
+      return;
+    }
+    if (creatorGuideOpen) {
+      setCreatorGuideOpen(false);
+      return;
+    }
+    if (collectionMenuId) setCollectionMenuId(null);
+    else if (studioMenuId) setStudioMenuId(null);
+    else setRecordMenuId(null);
+  });
+
   function toggleTemplateComments(template: GameTemplate): void {
     if (!GAME_HALL_COMMENTS_ENABLED) return;
     const nextOpen = expandedCommentsGameId !== template.id;
@@ -2778,7 +2844,7 @@ export function GameHubApp({ onClose, autoOpenLocalId }: { onClose: () => void; 
         <button
           type="button"
           aria-label={selectedTemplate ? "返回上一页" : creatorPageOpen ? "返回创作工坊" : "返回桌面"}
-          onClick={selectedTemplate ? closeTemplateDetails : creatorPageOpen ? closeCreatorPage : onClose}
+          onClick={requestPhoneBack}
         >
           <ChevronLeft size={22} strokeWidth={2.5} />
         </button>
@@ -3520,7 +3586,7 @@ export function GameHubApp({ onClose, autoOpenLocalId }: { onClose: () => void; 
           <section className={`game-runtime-card game-runtime-card--${runtimeStage}`}>
             {runtimeStage === "permission" ? (
               <div className="game-runtime-permission-top">
-                <button type="button" aria-label="返回" onClick={closeRuntime}>
+                <button type="button" aria-label="返回" onClick={requestPhoneBack}>
                   <ChevronLeft size={22} strokeWidth={2.5} />
                 </button>
               </div>
@@ -3529,7 +3595,7 @@ export function GameHubApp({ onClose, autoOpenLocalId }: { onClose: () => void; 
                 type="button"
                 className="game-runtime-floating-back"
                 aria-label="返回"
-                onClick={closeRuntime}
+                onClick={requestPhoneBack}
                 style={runtimeBackButtonStyle}
               >
                 <ChevronLeft size={22} strokeWidth={2.5} />
@@ -3543,7 +3609,7 @@ export function GameHubApp({ onClose, autoOpenLocalId }: { onClose: () => void; 
                 <p>该游戏使用高级游戏权限，可能控制当前页面显示、播放音频、访问本地页面数据、读取你选择角色的提示词包，并把关键游戏结果写入角色记忆。请仅运行可信作者的游戏。</p>
                 <span>本次授权只对当前打开的游戏生效；关闭后再次打开仍会重新询问。</span>
                 <div className="game-permission-actions">
-                  <button type="button" onClick={closeRuntime}>取消</button>
+                  <button type="button" onClick={requestPhoneBack}>取消</button>
                   <button type="button" className="is-primary" onClick={confirmAdvancedPermission}>允许并继续</button>
                 </div>
               </div>

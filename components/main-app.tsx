@@ -7,6 +7,7 @@ import { AccountGate } from "@/components/auth/account-gate";
 import { CloudBackupScheduler } from "@/components/cloud-backup-scheduler";
 import { MediaMaintenanceScheduler } from "@/components/media-maintenance-scheduler";
 import { DesktopShell } from "./desktop-shell";
+import { PhoneNavigationProvider } from "@/lib/phone-navigation";
 import { SplashAnimation } from "./splash-animation";
 import { MusicProvider } from "@/lib/music-context";
 import { hydrateKvDb } from "@/lib/kv-db";
@@ -281,10 +282,12 @@ export function MainApp() {
       ) : (
         <main className="app-root">
           <MusicProvider>
-            <DesktopShell
-              initialThemeProfile={preparedDesktopTheme?.profile}
-              initialThemeAssets={preparedDesktopTheme?.assets}
-            />
+            <PhoneNavigationProvider>
+              <DesktopShell
+                initialThemeProfile={preparedDesktopTheme?.profile}
+                initialThemeAssets={preparedDesktopTheme?.assets}
+              />
+            </PhoneNavigationProvider>
             <CloudBackupScheduler />
             <MediaMaintenanceScheduler />
           </MusicProvider>
