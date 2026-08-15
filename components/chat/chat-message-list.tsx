@@ -28,6 +28,7 @@ import {
     subscribeMascotSettings,
     updateMascotSettings,
 } from "@/lib/mascot-settings";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 /** Fallback: find last non-empty, non-system message preview when session preview is empty */
 function getLastNonEmptyPreview(sessionId: string): string {
@@ -49,6 +50,7 @@ type ChatMessageListProps = {
 };
 
 export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, onSelectMascot }: ChatMessageListProps) {
+    const requestPhoneBack = usePhoneBack();
     const [sessions, setSessions] = useState<ChatSession[]>([]);
     const [listFilter, setListFilter] = useState("");
     const [listTab, setListTab] = useState<"all" | "private" | "group">("all");
@@ -79,6 +81,29 @@ export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, on
     const mascotSettings = useSyncExternalStore(subscribeMascotSettings, getMascotSettingsSnapshot, getMascotSettingsSnapshot);
     const mascotChat = useSyncExternalStore(subscribeMascotChat, getMascotChatSnapshot, getMascotChatSnapshot);
     const [mascotAvatarUrl, setMascotAvatarUrl] = useState(mascotSettings.avatarImage || DEFAULT_MASCOT_AVATAR);
+
+    usePhoneBackHandler(Boolean(
+        showUserProfile || showContactPicker || showGroupCreate || isSearchModalOpen || showPlusMenu
+    ), () => {
+        if (showUserProfile) {
+            setShowUserProfile(false);
+            setIdentity(resolveUserIdentity());
+            return;
+        }
+        if (showContactPicker) {
+            setShowContactPicker(false);
+            return;
+        }
+        if (showGroupCreate) {
+            setShowGroupCreate(false);
+            return;
+        }
+        if (isSearchModalOpen) {
+            setIsSearchModalOpen(false);
+            return;
+        }
+        setShowPlusMenu(false);
+    }, 100);
 
     useEffect(() => {
         setIdentity(resolveUserIdentity());
@@ -271,7 +296,7 @@ export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, on
             {isSearchModalOpen && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 9999, background: '#ffffff' }}>
                 <div style={{ position: 'absolute', inset: 0, background: 'var(--c-page-body-bg)' }}>
-                <PageShell title="添加朋友" onBack={() => setIsSearchModalOpen(false)}>
+                <PageShell title="添加朋友" onBack={requestPhoneBack}>
 
                     {!searchResult && searchResult !== null && (
                         <div className="page-menu">
@@ -501,7 +526,7 @@ export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, on
             {/* Contact Picker */}
             {showContactPicker && (
                 <ContactPicker
-                    onClose={() => setShowContactPicker(false)}
+                    onClose={requestPhoneBack}
                     onSelect={(charId) => {
                         const session = createOrGetSession(charId);
                         setSessions(loadChatSessions());
@@ -514,7 +539,7 @@ export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, on
             {/* Group Create Modal */}
             {showGroupCreate && (
                 <GroupCreateModal
-                    onClose={() => setShowGroupCreate(false)}
+                    onClose={requestPhoneBack}
                     onCreate={(groupName, participantIds, isSpectator) => {
                         const newSession = createGroupSession(groupName, participantIds, { isSpectator });
                         const userName = resolveUserIdentity()?.name ?? "用户";
@@ -540,7 +565,7 @@ export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, on
 
             {/* User Profile Panel */}
             {showUserProfile && (
-                <UserProfilePanel onClose={() => { setShowUserProfile(false); setIdentity(resolveUserIdentity()); }} className="absolute inset-0 z-[100]" />
+                <UserProfilePanel onClose={requestPhoneBack} className="absolute inset-0 z-[100]" />
             )}
         </div>
     );
