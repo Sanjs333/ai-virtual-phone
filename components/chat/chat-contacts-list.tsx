@@ -27,6 +27,7 @@ import {
     subscribeMascotSettings,
     updateMascotSettings,
 } from "@/lib/mascot-settings";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type ChatContactsListProps = {
     onCloseApp: () => void;
@@ -40,6 +41,7 @@ type ChatContactsListProps = {
 };
 
 export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, pendingAddContactId, onPendingAddContactConsumed, onPendingAddContactBack }: ChatContactsListProps) {
+    const requestPhoneBack = usePhoneBack();
     const [contacts, setContacts] = useState<(ChatContact & { char?: Character })[]>([]);
     const [contactFilter, setContactFilter] = useState("");
     const [latestPost, setLatestPost] = useState<Record<string, string>>({});
@@ -56,6 +58,22 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
     const addFromCardRef = useRef(false);
     const mascotSettings = useSyncExternalStore(subscribeMascotSettings, getMascotSettingsSnapshot, getMascotSettingsSnapshot);
     const [mascotAvatarUrl, setMascotAvatarUrl] = useState(mascotSettings.avatarImage || DEFAULT_MASCOT_AVATAR);
+
+    usePhoneBackHandler(Boolean(selectedRequest || showRequestList || isAddFriendOpen), () => {
+        if (selectedRequest) {
+            if (!isProcessing) setSelectedRequest(null);
+            return "retain";
+        }
+        if (showRequestList) {
+            setShowRequestList(false);
+            return;
+        }
+        setIsAddFriendOpen(false);
+        if (addFromCardRef.current) {
+            addFromCardRef.current = false;
+            onPendingAddContactBack?.();
+        }
+    }, 100);
 
     const identity = useMemo(() => resolveUserIdentity(), []);
     const chars = useMemo(() => loadCharacters(), []);
@@ -429,7 +447,7 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
             {isAddFriendOpen && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 9999, background: '#ffffff' }}>
                 <div style={{ position: 'absolute', inset: 0, background: 'var(--c-page-body-bg)' }}>
-                <PageShell title="添加朋友" onBack={() => { setIsAddFriendOpen(false); if (addFromCardRef.current) { addFromCardRef.current = false; onPendingAddContactBack?.(); } }}>
+                <PageShell title="添加朋友" onBack={requestPhoneBack}>
                     {!addResult && addResult !== null && (
                         <div className="page-menu">
                             <div className="menu-group">

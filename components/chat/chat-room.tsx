@@ -80,6 +80,7 @@ import { extractTextToolDirectiveText } from "@/lib/text-tool-protocol";
 import { emitChatPluginEvent, getChatPluginHookBus, runChatPluginTransform } from "@/lib/chat-plugin-hooks";
 import { CHAT_PLUGIN_TOAST_EVENT, getChatPluginRuntime } from "@/lib/chat-plugin-runtime";
 import { ChatPluginSlot } from "@/components/chat/chat-plugin-slot";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 // ── Call system message detection ──────────────────────────
 // Call messages are stored with user/assistant role for correct prompt alternation,
@@ -1049,6 +1050,7 @@ const OfflineTextInputBar = memo(forwardRef<OfflineTextInputHandle, {
 }));
 
 export function ChatRoom({ session, onBack }: ChatRoomProps) {
+    const requestPhoneBack = usePhoneBack();
     const [liveCSS, setLiveCSS] = useState(session.customCSS || "");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [transientMessages, setTransientMessages] = useState<ChatMessage[]>([]);
@@ -5082,6 +5084,91 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
     const editingMessage = editingMessageId ? messages.find(m => m.id === editingMessageId) : null;
     const editingSystemInstruction = editingMessage ? isSystemInstructionMessage(editingMessage) : false;
 
+    usePhoneBackHandler(showVoiceCall || showVideoCall, () => {
+        if (showVoiceCall) returnFromCall(() => setShowVoiceCall(false));
+        else returnFromCall(() => setShowVideoCall(false));
+    }, 200);
+
+    usePhoneBackHandler(Boolean(
+        showSettings
+        || (activeCustomChatPlus && activeCustomChatPlus.presentation !== "none")
+        || richModal
+        || mediaDetailMsg
+        || reasoningSheetText
+        || editingOfflineTarget
+        || editingMessageId
+        || editingResponseBatchId
+        || editingResponseRoundId
+        || showConfirmMultiDelete
+        || cloudDeletePending
+        || activeMessageId
+        || activeOfflineTarget
+        || showEmojiPanel
+        || showStickerPanel
+        || showPlusMenu
+        || quotingMessage
+        || isMultiSelectMode
+    ), () => {
+        if (showConfirmMultiDelete) {
+            setShowConfirmMultiDelete(false);
+            return "retain";
+        }
+        if (cloudDeletePending) {
+            setCloudDeletePending(null);
+            return;
+        }
+        if (editingOfflineTarget) {
+            setEditingOfflineTarget(null);
+            setEditingOfflineContent("");
+            return;
+        }
+        if (editingMessageId) {
+            setEditingMessageId(null);
+            setEditingContent("");
+            return;
+        }
+        if (editingResponseBatchId || editingResponseRoundId) {
+            setEditingResponseBatchId(null);
+            setEditingResponseRoundId(null);
+            setEditingResponseContent("");
+            return;
+        }
+        if (mediaDetailMsg) {
+            setMediaDetailMsg(null);
+            return;
+        }
+        if (reasoningSheetText) {
+            setReasoningSheetText(null);
+            return;
+        }
+        if (richModal) {
+            setRichModal(null);
+            setTransferTarget(null);
+            return;
+        }
+        if (activeCustomChatPlus && activeCustomChatPlus.presentation !== "none") {
+            setActiveCustomChatPlus(null);
+            return;
+        }
+        if (showSettings) {
+            setShowSettings(false);
+            syncMessagesFromStorage();
+            return;
+        }
+        if (activeMessageId || activeOfflineTarget) {
+            closeContextMenu();
+            return;
+        }
+        if (showEmojiPanel || showStickerPanel || showPlusMenu || quotingMessage) {
+            setShowEmojiPanel(false);
+            setShowStickerPanel(false);
+            setShowPlusMenu(false);
+            setQuotingMessage(null);
+            return;
+        }
+        cancelMultiSelect();
+    }, 100);
+
     if (showVoiceCall) {
         if (session.isGroup && groupCharacters.length > 0) {
             return (
@@ -5153,7 +5240,7 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
             <header className="page-header chat-room-main-pane" data-ui="header">
                 <div className="page-header-safe-area" />
                 <div className="page-header-content">
-                    <button className="page-back-btn" type="button" onClick={onBack} aria-label="返回">
+                    <button className="page-back-btn" type="button" onClick={requestPhoneBack} aria-label="返回">
                         <ChevronLeft size={24} strokeWidth={1.5} />
                     </button>
                     <span className="page-title" style={{ position: 'relative' }}>
