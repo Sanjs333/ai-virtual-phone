@@ -139,7 +139,7 @@ export default function ReadingApp({ onClose }: Props) {
             )}
             {lastBookRef.current && (
                 <div style={activeBook ? undefined : hiddenViewerStyle} aria-hidden={!activeBook}>
-                    <ReadingViewer book={lastBookRef.current} onBack={requestPhoneBack} />
+                    <ReadingViewer book={lastBookRef.current} onBack={requestPhoneBack} visible={Boolean(activeBook)} />
                 </div>
             )}
         </div>

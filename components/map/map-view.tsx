@@ -16,6 +16,7 @@ import { expandEvent, companionDeclare, resolveRound, rollD100, ROLL_LABELS, for
 import { STAT_LABELS, ALL_STATS } from "@/lib/map-types";
 import MapRenderer from "./map-renderer";
 import MapTextStream from "./map-text-stream";
+import { usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type Props = {
   world: MapWorld;
@@ -78,6 +79,19 @@ export default function MapView({ world, save, onSaveUpdate, onBack }: Props) {
   const [customFontFamily, setCustomFontFamily] = useState<string | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const endingScrollRef = useRef<HTMLDivElement>(null);
+
+  // Adventure overlays stack above the "playing" layer owned by MapApp, so system
+  // back closes them one at a time instead of dropping straight to the lobby.
+  // Death/ending overlays are intentionally excluded: they require an explicit choice.
+  usePhoneBackHandler(showArchiveConfirm, () => setShowArchiveConfirm(false), 120);
+  usePhoneBackHandler(showSaveConfirm, () => setShowSaveConfirm(false), 120);
+  usePhoneBackHandler(showTopActionMenu, () => setShowTopActionMenu(false), 115);
+  usePhoneBackHandler(showThemePanel, () => setShowThemePanel(false), 110);
+  usePhoneBackHandler(showDebug, () => setShowDebug(false), 110);
+  usePhoneBackHandler(showWorldEvents, () => setShowWorldEvents(false), 110);
+  usePhoneBackHandler(showJournal, () => setShowJournal(false), 110);
+  usePhoneBackHandler(showToolPanel, () => setShowToolPanel(false), 105);
+  usePhoneBackHandler(showEventActionDrawer, () => setShowEventActionDrawer(false), 105);
 
   // Auto-scroll ending overlay when step changes
   useEffect(() => {

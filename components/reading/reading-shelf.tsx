@@ -8,6 +8,7 @@ import type { Book, BookChapter } from "@/lib/reading-types";
 import type { ReadingAppearance } from "@/lib/reading-appearance";
 import { ReadingAppearanceDialog } from "./reading-appearance-dialog";
 import { kvGet, kvSet, kvRemove } from "@/lib/kv-db";
+import { usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type Props = {
     onOpenBook: (book: Book) => void;
@@ -101,6 +102,9 @@ export function ReadingShelf({ onOpenBook, onClose, appearance, backgroundUrl, o
     const [search, setSearch] = useState("");
     const [showAppearanceDialog, setShowAppearanceDialog] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+
+    usePhoneBackHandler(showAppearanceDialog, () => setShowAppearanceDialog(false), 100);
+    usePhoneBackHandler(Boolean(importError), () => setImportError(null), 110);
 
     const persistImportDiagnostic = (payload: ImportDiagnostic | null) => {
         if (typeof window === "undefined") return;

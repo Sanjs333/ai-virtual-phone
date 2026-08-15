@@ -56,6 +56,7 @@ import {
   WALLET_UPDATED_EVENT,
 } from "@/lib/wallet-storage";
 import type { WalletState } from "@/lib/wallet-types";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type ShoppingAppProps = {
   onClose: (isBusy?: boolean) => void;
@@ -434,6 +435,27 @@ export function ShoppingApp({ onClose, visible = true, onIdle, onBusyChange }: S
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [blackMarketOpen, setBlackMarketOpen] = useState(false);
   const [blackMarketTransition, setBlackMarketTransition] = useState(false);
+  const requestPhoneBack = usePhoneBack();
+
+  // The shopping pane stays mounted while hidden, so every layer is gated on
+  // `visible`; otherwise a background pane would swallow the host's back press.
+  usePhoneBackHandler(visible && blackMarketOpen, () => setBlackMarketOpen(false), 100);
+  usePhoneBackHandler(visible && !blackMarketOpen && Boolean(selectedProduct), () => {
+    setTranslationPreview(null);
+    setSelectedProduct(null);
+  }, 100);
+  usePhoneBackHandler(visible && !blackMarketOpen && !selectedProduct && Boolean(selectedOrderId), () => {
+    setTranslationPreview(null);
+    setSelectedOrderId(null);
+  }, 100);
+  usePhoneBackHandler(visible && !blackMarketOpen && Boolean(translationPreview), () => setTranslationPreview(null), 110);
+  usePhoneBackHandler(visible && !blackMarketOpen && promptOpen, () => setPromptOpen(false), 115);
+  usePhoneBackHandler(visible && !blackMarketOpen && paymentRequestOpen, () => setPaymentRequestOpen(false), 120);
+  usePhoneBackHandler(visible && !blackMarketOpen && confirmRefreshOpen, () => setConfirmRefreshOpen(false), 125);
+  usePhoneBackHandler(visible && !blackMarketOpen && confirmCheckoutOpen, () => setConfirmCheckoutOpen(false), 125);
+  usePhoneBackHandler(visible && !blackMarketOpen && clearConfirmOpen, () => setClearConfirmOpen(false), 125);
+  usePhoneBackHandler(visible && !blackMarketOpen && Boolean(confirmCartDeleteItemId), () => setConfirmCartDeleteItemId(null), 125);
+  usePhoneBackHandler(visible && !blackMarketOpen && Boolean(debugRawOutput), () => setDebugRawOutput(null), 130);
   const cartFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cartPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blackMarketTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1002,17 +1024,20 @@ export function ShoppingApp({ onClose, visible = true, onIdle, onBusyChange }: S
       ? activeOrderShipping?.statusLabel ?? activeOrder.statusLabel
       : "分类推荐与心动清单";
 
-  const backAction = selectedProduct
-    ? () => {
+  const backAction = () => {
+    if (requestPhoneBack()) return;
+    if (selectedProduct) {
       setTranslationPreview(null);
       setSelectedProduct(null);
+      return;
     }
-    : activeOrder
-      ? () => {
-        setTranslationPreview(null);
-        setSelectedOrderId(null);
-      }
-      : () => onClose(loading);
+    if (activeOrder) {
+      setTranslationPreview(null);
+      setSelectedOrderId(null);
+      return;
+    }
+    onClose(loading);
+  };
 
   const selectedProductRecentlyAdded = Boolean(selectedProduct && recentlyAddedProductId === selectedProduct.id);
 
@@ -1111,7 +1136,7 @@ export function ShoppingApp({ onClose, visible = true, onIdle, onBusyChange }: S
   }
 
   if (blackMarketOpen) {
-    return <BlackMarketApp onClose={() => setBlackMarketOpen(false)} />;
+    return <BlackMarketApp onClose={() => { if (!requestPhoneBack()) setBlackMarketOpen(false); }} />;
   }
 
   return (

@@ -807,9 +807,12 @@ export function XiaohongshuApp({ onClose: _onClose, onNotice, visible = true, on
       setVideoCommentsOpen(false);
       return;
     }
-    setDmEmojiOpen(false);
-    setCommentEmojiOpen(false);
-    setCommentMentionOpen(false);
+    if (dmEmojiOpen || commentEmojiOpen || commentMentionOpen) {
+      setDmEmojiOpen(false);
+      setCommentEmojiOpen(false);
+      setCommentMentionOpen(false);
+      return;
+    }
     setReplyTarget(null);
   });
 

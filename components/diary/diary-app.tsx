@@ -5,6 +5,7 @@ import { BookOpenText, ChevronLeft, StickyNote } from "lucide-react";
 
 import { DiaryEntriesApp } from "./diary-entries-app";
 import { NoteWallApp } from "./note-wall-app";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type DiaryAppProps = {
   onClose: () => void;
@@ -17,17 +18,20 @@ const NOTE_WALL_UI_ENABLED = false;
 
 export function DiaryApp({ onClose, onNotice }: DiaryAppProps) {
   const [view, setView] = useState<DiaryView>("home");
+  const requestPhoneBack = usePhoneBack();
+  const goHome = () => { if (!requestPhoneBack()) setView("home"); };
+  usePhoneBackHandler(view !== "home", () => setView("home"));
   const todayLabel = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "2-digit",
   }).format(new Date()).toUpperCase();
 
   if (NOTE_WALL_UI_ENABLED && view === "notewall") {
-    return <NoteWallApp onBack={() => setView("home")} onNotice={onNotice} />;
+    return <NoteWallApp onBack={goHome} onNotice={onNotice} />;
   }
 
   if (view === "entries") {
-    return <DiaryEntriesApp onBack={() => setView("home")} onNotice={onNotice} />;
+    return <DiaryEntriesApp onBack={goHome} onNotice={onNotice} />;
   }
 
   return (

@@ -44,6 +44,7 @@ import { ChatFallbackAvatar } from "./chat-fallback-avatar";
 import { CHAT_APP_SETTINGS_UPDATED_EVENT, loadChatAppSettings } from "@/lib/chat-storage";
 import { shouldSendChatInputOnEnter } from "@/lib/chat-input-keyboard";
 import { useChatBottomReserve } from "./use-chat-bottom-reserve";
+import { usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type MascotChatRoomProps = {
     onBack: () => void;
@@ -144,6 +145,13 @@ function MascotInfoPanel({
     const [cssDraft, setCssDraft] = useState(settings.chatCustomCSS || "");
     const [showConfirmClearTools, setShowConfirmClearTools] = useState(false);
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+
+    // Inside the info panel: editors sit above it, confirms above the editors.
+    usePhoneBackHandler(editingName, () => setEditingName(false), 115);
+    usePhoneBackHandler(editingPersona, () => setEditingPersona(false), 115);
+    usePhoneBackHandler(editingCSS, () => setEditingCSS(false), 115);
+    usePhoneBackHandler(showConfirmClearTools, () => setShowConfirmClearTools(false), 125);
+    usePhoneBackHandler(showConfirmDelete, () => setShowConfirmDelete(false), 125);
     const chat = useSyncExternalStore(subscribeMascotChat, getMascotChatSnapshot, getMascotChatSnapshot);
     const hasToolHistory = hasMascotToolHistoryMessages(chat.messages);
     const hasCustomAvatar = !!settings.avatarImage && settings.avatarImage !== DEFAULT_MASCOT_AVATAR;
@@ -470,6 +478,15 @@ export function MascotChatRoom({ onBack, onDeleted }: MascotChatRoomProps) {
     const [contextMenuAnchor, setContextMenuAnchor] = useState<ContextMenuAnchor | null>(null);
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
     const [enterToSendEnabled, setEnterToSendEnabled] = useState(() => loadChatAppSettings().enterToSendEnabled === true);
+
+    // Image preview > context menu > info panel > emoji panel > the room itself.
+    usePhoneBackHandler(Boolean(previewImageUrl), () => setPreviewImageUrl(null), 140);
+    usePhoneBackHandler(Boolean(contextMenuAnchor || activeMascotMessageIndex !== null), () => {
+        setContextMenuAnchor(null);
+        setActiveMascotMessageIndex(null);
+    }, 130);
+    usePhoneBackHandler(showInfo, () => setShowInfo(false), 110);
+    usePhoneBackHandler(showEmojiPanel, () => setShowEmojiPanel(false), 100);
     const wrapperRef = useRef<HTMLDivElement | null>(null);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);

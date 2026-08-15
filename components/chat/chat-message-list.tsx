@@ -82,7 +82,7 @@ export function ChatMessageList({ onCloseApp, activeSession, onSelectSession, on
     const mascotChat = useSyncExternalStore(subscribeMascotChat, getMascotChatSnapshot, getMascotChatSnapshot);
     const [mascotAvatarUrl, setMascotAvatarUrl] = useState(mascotSettings.avatarImage || DEFAULT_MASCOT_AVATAR);
 
-    usePhoneBackHandler(Boolean(
+    usePhoneBackHandler(!activeSession && Boolean(
         showUserProfile || showContactPicker || showGroupCreate || isSearchModalOpen || showPlusMenu
     ), () => {
         if (showUserProfile) {

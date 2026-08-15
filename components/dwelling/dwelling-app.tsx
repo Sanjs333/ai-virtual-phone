@@ -21,6 +21,7 @@ import { getDwellingImageAvailability, generateDwellingRoomImage, cancelDwelling
 import { deleteMediaRef, loadMediaObjectUrl } from "@/lib/media-cache-storage";
 import { RoomView, type DwellingRoomImageStatus } from "./room-view";
 import { StoryHtmlRenderer } from "@/components/ui/story-html-renderer";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type DwellingAppProps = {
     onClose: () => void;
@@ -89,6 +90,13 @@ export function DwellingApp({ onClose, visible, onIdle }: DwellingAppProps) {
     const [itemDetail, setItemDetail] = useState<ItemDetail | null>(null);
     const [imageEnabled, setImageEnabled] = useState(true);
     const [imageConfigured, setImageConfigured] = useState(false);
+    const requestPhoneBack = usePhoneBack();
+
+    // The pane stays mounted while hidden, so gate every layer on `visible`.
+    // The character chips are a tab row, not a page level, so they own no layer.
+    usePhoneBackHandler(visible !== false && Boolean(itemDetail), () => setItemDetail(null), 120);
+    usePhoneBackHandler(visible !== false && showDeleteConfirm, () => setShowDeleteConfirm(false), 130);
+    usePhoneBackHandler(visible !== false && showRefreshConfirm, () => setShowRefreshConfirm(false), 130);
     const activeCharIdRef = useRef<string | null>(null);
     const activeRoomIdxRef = useRef(0);
 
@@ -340,7 +348,7 @@ export function DwellingApp({ onClose, visible, onIdle }: DwellingAppProps) {
     return (
         <div className="dwelling-app" data-haspicker={characters.length > 1 ? "true" : undefined}>
             <div className="dwelling-header">
-                <button className="dw-back" onClick={onClose}><ChevronLeft size={18} /></button>
+                <button className="dw-back" onClick={() => { if (!requestPhoneBack()) onClose(); }}><ChevronLeft size={18} /></button>
                 <h1>栖 所<span className="dw-title-en">DWELLING</span></h1>
             </div>
 

@@ -451,6 +451,8 @@ function shouldShowTimestamp(currentMsg: string, prevMsg: string | null): boolea
 type ChatRoomProps = {
     session: ChatSession;
     onBack: () => void;
+    /** Visited rooms stay mounted while hidden; a hidden room must not own a back layer. */
+    visible?: boolean;
 };
 
 type OfflineActionTarget = {
@@ -1049,7 +1051,7 @@ const OfflineTextInputBar = memo(forwardRef<OfflineTextInputHandle, {
     );
 }));
 
-export function ChatRoom({ session, onBack }: ChatRoomProps) {
+export function ChatRoom({ session, onBack, visible = true }: ChatRoomProps) {
     const requestPhoneBack = usePhoneBack();
     const [liveCSS, setLiveCSS] = useState(session.customCSS || "");
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -5084,12 +5086,12 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
     const editingMessage = editingMessageId ? messages.find(m => m.id === editingMessageId) : null;
     const editingSystemInstruction = editingMessage ? isSystemInstructionMessage(editingMessage) : false;
 
-    usePhoneBackHandler(showVoiceCall || showVideoCall, () => {
+    usePhoneBackHandler(visible && (showVoiceCall || showVideoCall), () => {
         if (showVoiceCall) returnFromCall(() => setShowVoiceCall(false));
         else returnFromCall(() => setShowVideoCall(false));
     }, 200);
 
-    usePhoneBackHandler(Boolean(
+    usePhoneBackHandler(visible && Boolean(
         showSettings
         || (activeCustomChatPlus && activeCustomChatPlus.presentation !== "none")
         || richModal
@@ -5159,10 +5161,13 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
             closeContextMenu();
             return;
         }
-        if (showEmojiPanel || showStickerPanel || showPlusMenu || quotingMessage) {
+        if (showEmojiPanel || showStickerPanel || showPlusMenu) {
             setShowEmojiPanel(false);
             setShowStickerPanel(false);
             setShowPlusMenu(false);
+            return;
+        }
+        if (quotingMessage) {
             setQuotingMessage(null);
             return;
         }

@@ -25,6 +25,7 @@ import {
 } from "@/lib/diary-entry-storage";
 import type { DiaryEntry, DiaryEntryBlock, DiaryEntryTimerSettings, DiaryEntryTrigger } from "@/lib/diary-entry-types";
 import { getThemeAssetDataUrl, saveThemeAssetFromBlob } from "@/lib/theme-storage";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 const DIARY_USER_FONT_FAMILY = "AIPhoneDiaryEntryUserFont";
 const DIARY_USER_FONT_STYLE_ID = "ai-phone-diary-entry-user-font-face";
@@ -127,6 +128,15 @@ export function DiaryEntriesApp({ onBack, onNotice }: DiaryEntriesAppProps) {
   const [diaryFontAssetId, setDiaryFontAssetId] = useState<string | null>(() => loadDiaryEntryFontAssetId());
   const [diaryFontDataUrl, setDiaryFontDataUrl] = useState<string | null>(null);
   const [diaryFontScale, setDiaryFontScale] = useState<number>(() => loadDiaryEntryFontScale());
+
+  // Layer order: character book -> entry detail -> panels/confirm on top.
+  const requestPhoneBack = usePhoneBack();
+  usePhoneBackHandler(Boolean(activeCharacterId), () => setActiveCharacterId(null), 100);
+  usePhoneBackHandler(Boolean(activeEntry), () => setActiveEntry(null), 110);
+  usePhoneBackHandler(Boolean(deleteCandidateEntry), () => setDeleteCandidateEntry(null), 120);
+  usePhoneBackHandler(timerSettingsOpen, () => setTimerSettingsOpen(false), 120);
+  usePhoneBackHandler(writePanelOpen, () => setWritePanelOpen(false), 120);
+  usePhoneBackHandler(fontPanelOpen, () => setFontPanelOpen(false), 120);
   // Merge in the module-level tracker so background generation (timer, or a
   // batch started before leaving the app) is visible again after re-entry.
   const trackedGeneratingIds = useDiaryGenerating();
@@ -602,7 +612,7 @@ export function DiaryEntriesApp({ onBack, onNotice }: DiaryEntriesAppProps) {
         <button
           type="button"
           className="diary-icon-btn"
-          onClick={() => (activeBook ? setActiveCharacterId(null) : onBack())}
+          onClick={() => { if (!requestPhoneBack()) { if (activeBook) setActiveCharacterId(null); else onBack(); } }}
           aria-label="返回"
         >
           <ChevronLeft size={20} />
@@ -734,7 +744,7 @@ export function DiaryEntriesApp({ onBack, onNotice }: DiaryEntriesAppProps) {
       ) : null}
 
       {activeEntry ? (
-        <DiaryEntryDetail entry={activeEntry} onClose={() => setActiveEntry(null)} />
+        <DiaryEntryDetail entry={activeEntry} onClose={() => { if (!requestPhoneBack()) setActiveEntry(null); }} />
       ) : null}
 
       {deleteCandidateEntry ? (

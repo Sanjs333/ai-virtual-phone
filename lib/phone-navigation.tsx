@@ -12,6 +12,10 @@ import {
 
 const PHONE_HISTORY_KEY = "__aiVirtualPhoneNavigation";
 const PHONE_HISTORY_SESSION = "phoneNavigationSession";
+// history.back()/go() normally answers with popstate inside a frame. If the
+// browser stays silent (blocked navigation, restored session, bfcache) release
+// the in-flight guards so the system back button cannot get stuck forever.
+const HISTORY_SETTLE_TIMEOUT = 700;
 
 export type PhoneBackResult = void | "retain";
 export type PhoneBackHandler = () => PhoneBackResult;
@@ -31,7 +35,8 @@ type RegisteredHandler = {
 
 type PhoneNavigationValue = {
   requestBack: () => boolean;
-  registerBackHandler: (handler: PhoneBackHandler, priority: number) => () => void;
+  attachBackHandler: (entry: RegisteredHandler) => void;
+  detachBackHandler: (entry: RegisteredHandler) => void;
 };
 
 const PhoneNavigationContext = createContext<PhoneNavigationValue | null>(null);
@@ -68,10 +73,21 @@ export function PhoneNavigationProvider({ children }: { children: ReactNode }) {
   const markerIdRef = useRef(0);
   const handlerOrderRef = useRef(0);
   const baseUrlRef = useRef<string | null>(null);
-  const handlingPopRef = useRef(false);
-  const suppressPopRef = useRef(0);
+  // Non-null while we asked the browser to move inside history ourselves, so the
+  // resulting popstate is treated as bookkeeping instead of a user back press.
+  const historySyncTargetRef = useRef<number | null>(null);
+  const syncTimerRef = useRef<number | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
   const requestPendingRef = useRef(false);
   const mountedRef = useRef(false);
+  const scheduleRef = useRef<() => void>(() => { });
+  // The handler consumed by the last back press, plus whether its owner asked to
+  // come back during the same flush. A handler that closed one of several stacked
+  // layers re-attaches immediately; one that did nothing at all does not.
+  const invokedRef = useRef<{ id: string; healed: boolean } | null>(null);
+  // Handlers that failed to close anything. They may not re-materialize a history
+  // layer until they have genuinely closed once, so back can never be trapped.
+  const staleRef = useRef<Set<string>>(new Set());
 
   const ensureRootMarker = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -105,40 +121,114 @@ export function PhoneNavigationProvider({ children }: { children: ReactNode }) {
     } satisfies PhoneHistoryMarker;
     depthRef.current = marker.depth;
     const state = withMarker(window.history.state, marker);
-    const hash = depth > 0 ? `#phone-nav-${++markerIdRef.current}` : window.location.hash;
-    if (replace) window.history.replaceState(state, "", hash || undefined);
-    else window.history.pushState(state, "", hash);
+    const rootUrl = baseUrlRef.current ?? `${window.location.pathname}${window.location.search}`;
+    if (replace) {
+      window.history.replaceState(state, "", depth === 0 ? rootUrl : undefined);
+      return;
+    }
+    window.history.pushState(state, "", depth > 0 ? `#phone-nav-${++markerIdRef.current}` : rootUrl);
   }, []);
 
-  const syncToRegisteredDepth = useCallback(() => {
+  const clearSettleTimer = useCallback(() => {
+    if (typeof window === "undefined" || settleTimerRef.current === null) return;
+    window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = null;
+  }, []);
+
+  const armSettleTimer = useCallback(() => {
     if (typeof window === "undefined") return;
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => {
+      settleTimerRef.current = null;
+      historySyncTargetRef.current = null;
+      requestPendingRef.current = false;
+      scheduleRef.current();
+    }, HISTORY_SETTLE_TIMEOUT);
+  }, []);
+
+  // Keep exactly one browser history entry per registered layer. Every mutation
+  // of the handler stack routes through here, so React state stays the source of
+  // truth and the history depth follows it.
+  const reconcileHistory = useCallback(() => {
+    if (typeof window === "undefined" || !mountedRef.current) return;
+    if (historySyncTargetRef.current !== null) return;
+    ensureRootMarker();
+    const invoked = invokedRef.current;
+    if (invoked) {
+      invokedRef.current = null;
+      if (!invoked.healed) staleRef.current.add(invoked.id);
+    }
     const handlers = handlersRef.current;
     const desiredDepth = handlers.length;
-    const current = readMarker(window.history.state);
-    if (
-      current?.session === sessionRef.current
-      && current.depth === desiredDepth
-      && current.entryId === (handlers[handlers.length - 1]?.id ?? null)
-    ) {
-      depthRef.current = desiredDepth;
-      return;
+    let current = readMarker(window.history.state);
+    if (current?.session !== sessionRef.current) {
+      ensureRootMarker();
+      current = readMarker(window.history.state);
     }
-    if (desiredDepth === 0) {
-      depthRef.current = 0;
-      window.history.replaceState(
-        withMarker(window.history.state, {
-          session: sessionRef.current,
-          depth: 0,
-          entryId: null,
-        }),
-        "",
-        baseUrlRef.current ?? `${window.location.pathname}${window.location.search}`,
-      );
-      return;
-    }
-    writeLayerMarker(handlers[handlers.length - 1]?.id ?? null, desiredDepth);
-  }, [writeLayerMarker]);
+    const currentDepth = current?.session === sessionRef.current ? current.depth : 0;
 
+    if (desiredDepth > currentDepth) {
+      for (let depth = currentDepth + 1; depth <= desiredDepth; depth += 1) {
+        writeLayerMarker(handlers[depth - 1]?.id ?? null, depth);
+      }
+      requestPendingRef.current = false;
+      return;
+    }
+
+    if (desiredDepth < currentDepth) {
+      historySyncTargetRef.current = desiredDepth;
+      requestPendingRef.current = true;
+      armSettleTimer();
+      window.history.go(desiredDepth - currentDepth);
+      return;
+    }
+
+    const topId = handlers[handlers.length - 1]?.id ?? null;
+    if (current?.entryId !== topId) writeLayerMarker(topId, desiredDepth, true);
+    else depthRef.current = desiredDepth;
+    requestPendingRef.current = false;
+  }, [armSettleTimer, ensureRootMarker, writeLayerMarker]);
+
+  const scheduleHistorySync = useCallback(() => {
+    if (typeof window === "undefined" || syncTimerRef.current !== null) return;
+    syncTimerRef.current = window.setTimeout(() => {
+      syncTimerRef.current = null;
+      reconcileHistory();
+    }, 0);
+  }, [reconcileHistory]);
+
+  scheduleRef.current = scheduleHistorySync;
+
+  // Idempotent: re-attaching a layer that is still registered only refreshes the
+  // sort order. A handler that stays active after handling a back press is
+  // re-attached by usePhoneBackHandler, which re-materializes its history entry.
+  const attachBackHandler = useCallback((entry: RegisteredHandler) => {
+    if (typeof window === "undefined") return;
+    const stack = handlersRef.current;
+    const known = stack.some(item => item.id === entry.id);
+    if (!known) {
+      if (staleRef.current.has(entry.id)) return;
+      if (invokedRef.current?.id === entry.id) invokedRef.current.healed = true;
+      entry.order = ++handlerOrderRef.current;
+      stack.push(entry);
+    }
+    stack.sort((a, b) => a.priority - b.priority || a.order - b.order);
+    if (known) return;
+    ensureRootMarker();
+    scheduleHistorySync();
+  }, [ensureRootMarker, scheduleHistorySync]);
+
+  const detachBackHandler = useCallback((entry: RegisteredHandler) => {
+    staleRef.current.delete(entry.id);
+    const stack = handlersRef.current;
+    const index = stack.findIndex(item => item.id === entry.id);
+    if (index < 0) return;
+    stack.splice(index, 1);
+    scheduleHistorySync();
+  }, [scheduleHistorySync]);
+
+  // Consuming the top entry guarantees forward progress even if a handler is a
+  // no-op; layers that are still open come back through attachBackHandler.
   const invokeTopHandler = useCallback(() => {
     const top = handlersRef.current.pop();
     if (!top) return;
@@ -151,14 +241,17 @@ export function PhoneNavigationProvider({ children }: { children: ReactNode }) {
     }
     if (result === "retain") {
       handlersRef.current.push(top);
-      writeLayerMarker(top.id, handlersRef.current.length);
-      return;
+      handlersRef.current.sort((a, b) => a.priority - b.priority || a.order - b.order);
+      invokedRef.current = null;
+    } else {
+      invokedRef.current = { id: top.id, healed: false };
     }
-    syncToRegisteredDepth();
-  }, [syncToRegisteredDepth, writeLayerMarker]);
+    scheduleHistorySync();
+  }, [scheduleHistorySync]);
 
   const onPopState = useCallback((event: PopStateEvent) => {
     if (typeof window === "undefined" || !mountedRef.current) return;
+    clearSettleTimer();
     const previousDepth = depthRef.current;
     const nextMarker = readMarker(event.state);
     const isCurrentSession = nextMarker?.session === sessionRef.current;
@@ -166,96 +259,66 @@ export function PhoneNavigationProvider({ children }: { children: ReactNode }) {
     depthRef.current = nextDepth;
     requestPendingRef.current = false;
 
+    if (historySyncTargetRef.current !== null) {
+      historySyncTargetRef.current = null;
+      scheduleHistorySync();
+      return;
+    }
     if (nextDepth > previousDepth) {
       // A stale forward entry cannot restore React state. Return to the last
       // state represented by the registered handler stack.
+      historySyncTargetRef.current = handlersRef.current.length;
+      requestPendingRef.current = true;
+      armSettleTimer();
       window.history.go(-1);
       return;
     }
     if (!isCurrentSession && previousDepth === 0 && handlersRef.current.length === 0) {
       return;
     }
-    if (suppressPopRef.current > 0) {
-      suppressPopRef.current -= 1;
-      syncToRegisteredDepth();
+    if (nextDepth === previousDepth) {
+      scheduleHistorySync();
       return;
     }
-    if (handlingPopRef.current) return;
-    handlingPopRef.current = true;
     invokeTopHandler();
-    window.setTimeout(() => {
-      handlingPopRef.current = false;
-    }, 0);
-  }, [invokeTopHandler, syncToRegisteredDepth]);
+  }, [armSettleTimer, clearSettleTimer, invokeTopHandler, scheduleHistorySync]);
+
+  // On-screen back buttons go through history so the browser entry is consumed
+  // together with the React layer; otherwise the next system back does nothing.
+  const requestBack = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    if (handlersRef.current.length === 0) return false;
+    if (requestPendingRef.current) return true;
+    const marker = readMarker(window.history.state);
+    if (marker?.session === sessionRef.current && marker.depth > 0) {
+      requestPendingRef.current = true;
+      armSettleTimer();
+      window.history.back();
+      return true;
+    }
+    invokeTopHandler();
+    return true;
+  }, [armSettleTimer, invokeTopHandler]);
 
   useLayoutEffect(() => {
     ensureRootMarker();
     mountedRef.current = true;
     window.addEventListener("popstate", onPopState);
+    scheduleHistorySync();
     return () => {
       mountedRef.current = false;
       window.removeEventListener("popstate", onPopState);
       handlersRef.current = [];
+      if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+      clearSettleTimer();
     };
-  }, [ensureRootMarker, onPopState]);
+  }, [clearSettleTimer, ensureRootMarker, onPopState, scheduleHistorySync]);
 
-  const registerBackHandler = useCallback((handler: PhoneBackHandler, priority: number) => {
-    if (typeof window === "undefined") return () => { };
-    ensureRootMarker();
-    const entry: RegisteredHandler = {
-      id: createId("phone-layer"),
-      handler,
-      priority,
-      order: ++handlerOrderRef.current,
-    };
-    const previousTop = handlersRef.current[handlersRef.current.length - 1] ?? null;
-    handlersRef.current.push(entry);
-    handlersRef.current.sort((a, b) => a.priority - b.priority || a.order - b.order);
-    const current = readMarker(window.history.state);
-    const top = handlersRef.current[handlersRef.current.length - 1] ?? entry;
-    const currentDepth = current?.session === sessionRef.current ? current.depth : 0;
-    if (previousTop && entry.priority < previousTop.priority) {
-      // A parent layout effect can run after a child layout effect. Insert the
-      // lower-priority handler into the logical stack without adding a second
-      // browser entry; the missing layer is materialized when the child backs
-      // out and the stack becomes visible again.
-      writeLayerMarker(top.id, currentDepth, true);
-    } else {
-      writeLayerMarker(top.id, currentDepth + 1);
-    }
-
-    return () => {
-      const index = handlersRef.current.findIndex(item => item.id === entry.id);
-      if (index < 0) return;
-      const wasTop = index === handlersRef.current.length - 1;
-      handlersRef.current.splice(index, 1);
-      if (!wasTop || handlingPopRef.current || suppressPopRef.current > 0) return;
-      const marker = readMarker(window.history.state);
-      if (marker?.session !== sessionRef.current || marker.entryId !== entry.id) return;
-      suppressPopRef.current += 1;
-      window.history.back();
-    };
-  }, [ensureRootMarker, writeLayerMarker]);
-
-  const requestBack = useCallback(() => {
-    if (typeof window === "undefined") return false;
-    const top = handlersRef.current[handlersRef.current.length - 1];
-    if (!top) return false;
-    if (requestPendingRef.current) return true;
-    requestPendingRef.current = true;
-    const marker = readMarker(window.history.state);
-    if (marker?.session === sessionRef.current && marker.entryId === top.id) {
-      window.history.back();
-      return true;
-    }
-    invokeTopHandler();
-    window.setTimeout(() => {
-      requestPendingRef.current = false;
-    }, 0);
-    return true;
-  }, [invokeTopHandler]);
-
-  const value = useMemo(() => ({ requestBack, registerBackHandler }), [registerBackHandler, requestBack]);
+  const value = useMemo(
+    () => ({ requestBack, attachBackHandler, detachBackHandler }),
+    [attachBackHandler, detachBackHandler, requestBack],
+  );
   return <PhoneNavigationContext.Provider value={value}>{children}</PhoneNavigationContext.Provider>;
 }
 
@@ -265,14 +328,38 @@ export function usePhoneBack(): () => boolean {
   return context.requestBack;
 }
 
+/**
+ * Registers one back layer. `active` must describe a single visual layer; a
+ * handler that closes one of several stacked layers can simply stay active and
+ * its history entry is restored for the next back press.
+ */
 export function usePhoneBackHandler(active: boolean, handler: PhoneBackHandler, priority = 0): void {
   const context = useContext(PhoneNavigationContext);
   if (!context) throw new Error("usePhoneBackHandler must be used within <PhoneNavigationProvider>");
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
+  const entryRef = useRef<RegisteredHandler | null>(null);
+  if (!entryRef.current) {
+    entryRef.current = {
+      id: createId("phone-layer"),
+      handler: () => handlerRef.current(),
+      priority,
+      order: 0,
+    };
+  }
+  const entry = entryRef.current;
+  entry.priority = priority;
 
   useLayoutEffect(() => {
     if (!active) return undefined;
-    return context.registerBackHandler(() => handlerRef.current(), priority);
-  }, [active, context, priority]);
+    context.attachBackHandler(entry);
+    return () => context.detachBackHandler(entry);
+  }, [active, context, entry, priority]);
+
+  // Runs after every commit: if this layer is still open but its stack slot was
+  // consumed by a back press that only closed an inner layer, restore it so the
+  // next back press stops here instead of skipping to the parent layer.
+  useLayoutEffect(() => {
+    if (active) context.attachBackHandler(entry);
+  });
 }

@@ -64,6 +64,7 @@ import { SessionCustomCSS } from "@/components/ui/session-custom-css";
 import { STORY_CSS_EXAMPLE } from "@/lib/css-examples";
 import { applyEditOutputRegex } from "@/lib/llm-prompt-assembler";
 import { MacroEngine } from "@/lib/macro-engine";
+import { usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type StoryAppProps = {
   onClose: () => void;
@@ -294,6 +295,19 @@ export function StoryApp({ onClose }: StoryAppProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [cssModalOpen, setCssModalOpen] = useState(false);
+
+  // Session drawer / CSS editor / message context menu / inline edit are all
+  // dismissable layers above the story page.
+  usePhoneBackHandler(drawerOpen, () => setDrawerOpen(false), 100);
+  usePhoneBackHandler(cssModalOpen, () => setCssModalOpen(false), 110);
+  usePhoneBackHandler(Boolean(editingMessageId), () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  }, 120);
+  usePhoneBackHandler(Boolean(activeMessageId || contextMenuPoint), () => {
+    setActiveMessageId(null);
+    setContextMenuPoint(null);
+  }, 130);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shellInnerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(true);

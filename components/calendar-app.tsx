@@ -23,6 +23,7 @@ import { createDefaultScheduleDraft, generateWeeklyCalendarSchedule } from "@/li
 import { loadCharacters } from "@/lib/character-storage";
 import { loadChatSessions } from "@/lib/chat-storage";
 import { resolveUserIdentity } from "@/lib/settings-storage";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import {
   formatIsoDate,
   getWeekStartIso,
@@ -151,6 +152,17 @@ export function PhoneCalendarApp({
   const autoAttemptedRef = useRef<Set<string>>(new Set());
   const [editingItem, setEditingItem] = useState<(CalendarEventDraft & { originalDate?: string }) | null>(null);
   const autoGenerateEnabled = config.autoGenerateEnabled;
+  const requestPhoneBack = usePhoneBack();
+
+  // Day detail is the page layer; every panel/dialog above it peels off first.
+  usePhoneBackHandler(view === "detail", () => setView("month"), 100);
+  usePhoneBackHandler(fabMenuOpen, () => setFabMenuOpen(false), 110);
+  usePhoneBackHandler(showThemePanel, () => setShowThemePanel(false), 120);
+  usePhoneBackHandler(showDaysPanel, () => setShowDaysPanel(false), 120);
+  usePhoneBackHandler(showMenstrualSettings, () => setShowMenstrualSettings(false), 120);
+  usePhoneBackHandler(Boolean(editingItem), () => setEditingItem(null), 125);
+  usePhoneBackHandler(showGenerateConfirm, () => setShowGenerateConfirm(false), 130);
+  usePhoneBackHandler(showAutoConfirm, () => setShowAutoConfirm(false), 130);
 
   const [menstrualDraft, setMenstrualDraft] = useState<{
     cycleLength: string;
@@ -546,7 +558,7 @@ export function PhoneCalendarApp({
             daysPerPage={config.daysPerPage}
             onOpenDaysPicker={() => setShowDaysPanel(true)}
             onOpenCycleSettings={selectedOwner?.ownerType === "user" ? openMenstrualSettings : null}
-            onBack={() => setView("month")}
+            onBack={() => { if (!requestPhoneBack()) setView("month"); }}
             onSelectedChange={setSelectedDate}
             onEditItem={openEditItem}
           />

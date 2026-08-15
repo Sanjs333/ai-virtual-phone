@@ -59,6 +59,7 @@ import {
 import { incrementEventCounter } from "@/lib/memory-storage";
 import { maybeRunSummarization } from "@/lib/memory-summarizer";
 import { loadUserIdentities, resolveUserIdentity } from "@/lib/settings-storage";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type Props = {
   onClose: () => void;
@@ -198,6 +199,16 @@ export function InterviewMagazineApp({ onClose }: Props) {
   const [characterRounds, setCharacterRounds] = useState(0);
   const [hostPrompt, setHostPrompt] = useState(INTERVIEW_MAGAZINE_DEFAULT_HOST_PROMPT);
   const [memoryPrompt, setMemoryPrompt] = useState(INTERVIEW_MAGAZINE_DEFAULT_MEMORY_PROMPT);
+  const requestPhoneBack = usePhoneBack();
+
+  // Only the two idle screens claim a back layer. "interview" and "generating"
+  // are live runs whose exits abort work, so they stay button-only on purpose.
+  usePhoneBackHandler(screen === "setup", () => setScreen("home"), 100);
+  usePhoneBackHandler(screen === "article", () => {
+    setActiveIssue(null);
+    resetDraft();
+    setScreen("home");
+  }, 100);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const composeRunRef = useRef(0);
   const resumeActionRef = useRef<InterviewResumeAction | null>(null);
@@ -768,7 +779,7 @@ export function InterviewMagazineApp({ onClose }: Props) {
             onUserIdentityChange={setUserIdentityId}
             onHostPromptSave={(nextPrompt) => setHostPrompt(saveInterviewHostPrompt(nextPrompt))}
             onMemoryPromptSave={(nextPrompt) => setMemoryPrompt(saveInterviewMemoryPrompt(nextPrompt))}
-            onBack={() => setScreen("home")}
+            onBack={() => { if (!requestPhoneBack()) setScreen("home"); }}
             onStart={startInterview}
           />
         ) : screen === "interview" ? (
@@ -797,6 +808,7 @@ export function InterviewMagazineApp({ onClose }: Props) {
           <ArticleScreen
             issue={activeIssue}
             onBack={() => {
+              if (requestPhoneBack()) return;
               setActiveIssue(null);
               resetDraft();
               setScreen("home");
@@ -844,6 +856,9 @@ function HomeScreen({
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [pendingDeleteDraft, setPendingDeleteDraft] = useState<InterviewDraft | null>(null);
   const [pendingDeleteIssue, setPendingDeleteIssue] = useState<InterviewIssue | null>(null);
+  usePhoneBackHandler(archiveOpen, () => setArchiveOpen(false), 110);
+  usePhoneBackHandler(Boolean(pendingDeleteDraft), () => setPendingDeleteDraft(null), 120);
+  usePhoneBackHandler(Boolean(pendingDeleteIssue), () => setPendingDeleteIssue(null), 120);
   const nextIssueNumber = useMemo(
     () => issues.reduce((largest, issue) => Math.max(largest, issue.issueNumber || 0), 0) + 1,
     [issues],

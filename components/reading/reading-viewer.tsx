@@ -30,6 +30,7 @@ import { decodeTxtArrayBuffer, parsePdfPageRange, PDF_PAGES_PER_CHAPTER, parseTx
 import type { Book, BookChapter, ReadingAnnotation, ReadingProgress } from "@/lib/reading-types";
 import type { Character } from "@/lib/character-types";
 import { splitBilingualText } from "@/lib/bilingual-text";
+import { usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type TxtPageItem =
     | { kind: "line"; text: string; chapterIndex: number; paragraphIndex: number; indent?: boolean; segEnd?: boolean }
@@ -208,9 +209,11 @@ function ReadingAnnotationContent({
 type Props = {
     book: Book;
     onBack: () => void;
+    /** The viewer stays mounted while the shelf is showing; hidden must not own a back layer. */
+    visible?: boolean;
 };
 
-export function ReadingViewer({ book, onBack }: Props) {
+export function ReadingViewer({ book, onBack, visible = true }: Props) {
     const isPdf = book.format === "pdf";
     const [readingConfig, setReadingConfig] = useState(() => loadReadingInteractionConfig());
     const [chapters, setChapters] = useState<BookChapter[]>([]);
@@ -251,6 +254,21 @@ export function ReadingViewer({ book, onBack }: Props) {
     const [editingDiscussContent, setEditingDiscussContent] = useState("");
     const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(null);
     const [annotationTranslationOverrides, setAnnotationTranslationOverrides] = useState<Record<string, boolean>>({});
+
+    // Reader overlays sit above the book layer owned by ReadingApp, so system back
+    // peels them off one at a time before it closes the book itself.
+    usePhoneBackHandler(visible && Boolean(readingMessageMenu), () => setReadingMessageMenu(null), 120);
+    usePhoneBackHandler(visible && Boolean(editingDiscussMessage), () => {
+        setEditingDiscussMessage(null);
+        setEditingDiscussContent("");
+    }, 120);
+    usePhoneBackHandler(visible && Boolean(annotationDialogMode), () => setAnnotationDialogMode(null), 110);
+    usePhoneBackHandler(visible && showReadingSettings, () => setShowReadingSettings(false), 110);
+    usePhoneBackHandler(visible && showNavigationDialog, () => setShowNavigationDialog(false), 110);
+    usePhoneBackHandler(visible && showCharPicker, () => closeCharPicker(), 105);
+    usePhoneBackHandler(visible && showChat && chatExpanded, () => setChatExpanded(false), 101);
+    usePhoneBackHandler(visible && showChat, () => setShowChat(false), 100);
+
     const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const readingMessagePressStartRef = useRef<{ x: number; y: number } | null>(null);
     const chatDragRef = useRef<{ pointerId: number; startX: number; startY: number; originX: number; originY: number } | null>(null);

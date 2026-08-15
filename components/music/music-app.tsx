@@ -22,6 +22,7 @@ import {
     type NeteasePlaylistDetail, type NeteaseUserDetail, type NeteasePlayRecord,
 } from "@/lib/music-service";
 import { clearMusicCloudSyncData } from "@/lib/chat-engine";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import MusicCommentsPage from "./music-comments";
 import {
     loadMusicBg, saveMusicBg, clearMusicBg, fileToCompressedDataUrl, appBgStyle,
@@ -50,6 +51,13 @@ export default function MusicApp({ onClose }: Props) {
     const musicLoadingFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [bgCfg, setBgCfg] = useState<MusicBgConfig>(() => loadMusicBg());
     const player = useMusicControls();
+    const requestPhoneBack = usePhoneBack();
+
+    // Modal layers sit above the in-app pages so back peels them off first.
+    usePhoneBackHandler(Boolean(dailyView), () => setDailyView(null), 105);
+    usePhoneBackHandler(Boolean(activePlaylist), () => setActivePlaylist(null), 100);
+    usePhoneBackHandler(showSettings, () => setShowSettings(false), 120);
+    usePhoneBackHandler(showCssEditor, () => setShowCssEditor(false), 120);
 
     useEffect(() => {
         const handleBgChange = () => setBgCfg(loadMusicBg());
@@ -294,6 +302,7 @@ export default function MusicApp({ onClose }: Props) {
             <div className="music-header">
                 <div className="music-header-left">
                     <button className="music-header-action" onClick={() => {
+                        if (requestPhoneBack()) return;
                         if (dailyView) { setDailyView(null); }
                         else if (activePlaylist) { setActivePlaylist(null); }
                         else { onClose(); }
@@ -1052,6 +1061,7 @@ function PlaylistsTab({ player, formatTime, onPlayNetease, onPlayAll, activePlay
     const [subDelta, setSubDelta] = useState(0);
     const [subscribing, setSubscribing] = useState(false);
     const [showComments, setShowComments] = useState(false);
+    usePhoneBackHandler(showComments, () => setShowComments(false), 130);
 
     // Fetch rich playlist meta (play count / tags / description)
     useEffect(() => {

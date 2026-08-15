@@ -238,6 +238,7 @@ export const PhoneChatApp = memo(function PhoneChatApp({ onClose, initialSession
                 {activeTab === "contacts" && (
                     <ChatContactsList
                         onCloseApp={onClose}
+                        visible={!activeSession && !activeMascot}
                         onSelectSession={handleSelectContact}
                         onSelectMascot={handleSelectMascot}
                         pendingAddContactId={pendingAddContactId}
@@ -292,7 +293,7 @@ export const PhoneChatApp = memo(function PhoneChatApp({ onClose, initialSession
             {/* Chat Rooms — all visited sessions stay mounted, only active one is visible */}
             {[...visitedSessions.values()].map(sess => (
                 <div key={sess.id} style={{ display: activeSession?.id === sess.id ? undefined : 'none' }} className="chat-room-layer absolute inset-0">
-                    <ChatRoom session={sess} onBack={requestPhoneBack} />
+                    <ChatRoom session={sess} onBack={requestPhoneBack} visible={activeSession?.id === sess.id} />
                 </div>
             ))}
             {activeMascot && (

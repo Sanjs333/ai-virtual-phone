@@ -1783,7 +1783,7 @@ export function GameHubApp({ onClose: _onClose, autoOpenLocalId }: { onClose: ()
       return;
     }
     closeCreatorPage();
-  }, 20);
+  }, -20);
 
   usePhoneBackHandler(Boolean(
     commentDeleteTarget || commentMenu || coverDeleteConfirmOpen || profileEditorOpen

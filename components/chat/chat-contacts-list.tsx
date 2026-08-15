@@ -38,9 +38,11 @@ type ChatContactsListProps = {
     onPendingAddContactConsumed?: () => void;
     /** 名片来源的添加页按返回时回到原聊天室 */
     onPendingAddContactBack?: () => void;
+    /** 聊天室覆盖在本页之上时为 false：被遮住的层不应持有返回层级 */
+    visible?: boolean;
 };
 
-export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, pendingAddContactId, onPendingAddContactConsumed, onPendingAddContactBack }: ChatContactsListProps) {
+export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, pendingAddContactId, onPendingAddContactConsumed, onPendingAddContactBack, visible = true }: ChatContactsListProps) {
     const requestPhoneBack = usePhoneBack();
     const [contacts, setContacts] = useState<(ChatContact & { char?: Character })[]>([]);
     const [contactFilter, setContactFilter] = useState("");
@@ -59,7 +61,7 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
     const mascotSettings = useSyncExternalStore(subscribeMascotSettings, getMascotSettingsSnapshot, getMascotSettingsSnapshot);
     const [mascotAvatarUrl, setMascotAvatarUrl] = useState(mascotSettings.avatarImage || DEFAULT_MASCOT_AVATAR);
 
-    usePhoneBackHandler(Boolean(selectedRequest || showRequestList || isAddFriendOpen), () => {
+    usePhoneBackHandler(visible && Boolean(selectedRequest || showRequestList || isAddFriendOpen), () => {
         if (selectedRequest) {
             if (!isProcessing) setSelectedRequest(null);
             return "retain";
