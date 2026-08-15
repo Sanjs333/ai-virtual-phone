@@ -16,6 +16,7 @@ import { kvGet } from "@/lib/kv-db";
 import { formatXiaohongshuShareForPrompt, type ChatSharePayload } from "@/lib/chat-share";
 import { CHAT_OPEN_SESSION_EVENT, CHAT_OPEN_ADD_CONTACT_EVENT } from "@/lib/chat-notification-events";
 import { getMascotSettingsSnapshot } from "@/lib/mascot-settings";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type TabKey = "messages" | "contacts" | "feeds" | "me";
 
@@ -28,6 +29,7 @@ export type PhoneChatAppProps = {
 };
 
 export const PhoneChatApp = memo(function PhoneChatApp({ onClose, initialSessionId, onSessionChange, sharePayload, onShareDone }: PhoneChatAppProps) {
+    const requestPhoneBack = usePhoneBack();
     const [activeTab, setActiveTab] = useState<TabKey>("messages");
     const [activeSession, setActiveSession] = useState<ChatSession | null>(null);
     const [activeMascot, setActiveMascot] = useState(false);
@@ -39,6 +41,14 @@ export const PhoneChatApp = memo(function PhoneChatApp({ onClose, initialSession
     const [visitedSessions, setVisitedSessions] = useState<Map<string, ChatSession>>(new Map());
     const [dbReady, setDbReady] = useState(false);
     const [hideTabBar, setHideTabBar] = useState(false);
+
+    usePhoneBackHandler(Boolean(activeSession || activeMascot), () => {
+        if (activeMascot) setActiveMascot(false);
+        else setActiveSession(null);
+    });
+    usePhoneBackHandler(!activeSession && !activeMascot && activeTab === "me", () => {
+        setActiveTab("messages");
+    });
 
     // Hydrate IndexedDB → in-memory caches on mount
     useEffect(() => {
@@ -244,7 +254,7 @@ export const PhoneChatApp = memo(function PhoneChatApp({ onClose, initialSession
                     />
                 )}
                 {activeTab === "feeds" && <MomentsFeed onCloseApp={onClose} />}
-                {activeTab === "me" && <UserProfilePanel onClose={() => setActiveTab("messages")} />}
+                {activeTab === "me" && <UserProfilePanel onClose={requestPhoneBack} />}
             </div>
 
             {/* Bottom Navigation Bar — hide when inside a chat room */}
@@ -282,14 +292,14 @@ export const PhoneChatApp = memo(function PhoneChatApp({ onClose, initialSession
             {/* Chat Rooms — all visited sessions stay mounted, only active one is visible */}
             {[...visitedSessions.values()].map(sess => (
                 <div key={sess.id} style={{ display: activeSession?.id === sess.id ? undefined : 'none' }} className="chat-room-layer absolute inset-0">
-                    <ChatRoom session={sess} onBack={() => setActiveSession(null)} />
+                    <ChatRoom session={sess} onBack={requestPhoneBack} />
                 </div>
             ))}
             {activeMascot && (
                 <div className="chat-room-layer absolute inset-0">
                     <MascotChatRoom
-                        onBack={() => setActiveMascot(false)}
-                        onDeleted={() => setActiveMascot(false)}
+                        onBack={requestPhoneBack}
+                        onDeleted={requestPhoneBack}
                     />
                 </div>
             )}

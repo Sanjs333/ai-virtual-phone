@@ -89,6 +89,7 @@ import {
   saveCheckPhoneSettings,
   type CheckPhoneSettings,
 } from "@/lib/checkphone-settings";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import { DEFAULT_CHECKPHONE_BILINGUAL_PROMPT } from "@/lib/bilingual-prompt-defaults";
 
 type CheckPhoneAppProps = {
@@ -282,7 +283,8 @@ function getAppIconClass(appId: CheckPhoneAppId, isDock = false) {
   return baseClass;
 }
 
-export function CheckPhoneApp({ onClose }: CheckPhoneAppProps) {
+export function CheckPhoneApp({ onClose: _onClose }: CheckPhoneAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [activeCharId, setActiveCharId] = useState<string | null>(null);
   const [states, setStates] = useState<Record<string, ManifestState>>({});
@@ -429,6 +431,33 @@ export function CheckPhoneApp({ onClose }: CheckPhoneAppProps) {
 
   const closeSelectedApp = () => setSelectedAppId(null);
 
+  usePhoneBackHandler(Boolean(activeCharId), () => {
+    setActiveCharId(null);
+    setSelectedAppId(null);
+  }, -100);
+  usePhoneBackHandler(Boolean(activeCharId && selectedAppId), closeSelectedApp);
+  usePhoneBackHandler(Boolean(
+    confirmClearHistoryCharId || confirmClearOpen || promptEditorOpen || settingsOpen || historyOpen
+  ), () => {
+    if (confirmClearHistoryCharId) {
+      setConfirmClearHistoryCharId(null);
+      return;
+    }
+    if (confirmClearOpen) {
+      setConfirmClearOpen(false);
+      return;
+    }
+    if (promptEditorOpen) {
+      setPromptEditorOpen(false);
+      return;
+    }
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return;
+    }
+    setHistoryOpen(false);
+  });
+
   function updateCheckPhoneSettings(patch: Partial<CheckPhoneSettings>) {
     const next = { ...checkPhoneSettings, ...patch };
     setCheckPhoneSettings(next);
@@ -450,55 +479,55 @@ export function CheckPhoneApp({ onClose }: CheckPhoneAppProps) {
     if (!activeCharacter || !selectedAppId) return null;
     switch (selectedAppId) {
       case "chat":
-        return <CheckPhoneChatPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneChatPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "phone":
-        return <CheckPhonePhonePage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhonePhonePage character={activeCharacter} onBack={requestPhoneBack} />;
       case "notes":
-        return <CheckPhoneNotesPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneNotesPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "shopping":
-        return <CheckPhoneShoppingPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneShoppingPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "assets":
-        return <CheckPhoneAssetsPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneAssetsPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "photos":
-        return <CheckPhonePhotosPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhonePhotosPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "browser":
-        return <CheckPhoneBrowserPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneBrowserPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "messages":
-        return <CheckPhoneMessagesPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneMessagesPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "music":
-        return <CheckPhoneMusicPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneMusicPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "reading":
-        return <CheckPhoneReadingPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneReadingPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "weibo":
-        return <CheckPhoneWeiboPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneWeiboPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "xiaohongshu":
-        return <CheckPhoneXiaohongshuPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneXiaohongshuPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "email":
-        return <CheckPhoneEmailPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneEmailPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "douyin":
-        return <CheckPhoneDouyinPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneDouyinPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "takeout":
-        return <CheckPhoneTakeoutPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneTakeoutPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "telegram":
-        return <CheckPhoneTelegramPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneTelegramPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "steam":
-        return <CheckPhoneSteamPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneSteamPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "x":
-        return <CheckPhoneXPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneXPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "reddit":
-        return <CheckPhoneRedditPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneRedditPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "youtube":
-        return <CheckPhoneYoutubePage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneYoutubePage character={activeCharacter} onBack={requestPhoneBack} />;
       case "instagram":
-        return <CheckPhoneInstagramPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneInstagramPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "bilibili":
-        return <CheckPhoneBilibiliPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneBilibiliPage character={activeCharacter} onBack={requestPhoneBack} />;
       case "douban":
-        return <CheckPhoneDoubanPage character={activeCharacter} onBack={closeSelectedApp} />;
+        return <CheckPhoneDoubanPage character={activeCharacter} onBack={requestPhoneBack} />;
       default:
         return null;
     }
-  }, [activeCharacter, selectedAppId]);
+  }, [activeCharacter, requestPhoneBack, selectedAppId]);
 
   async function handleGenerate() {
     if (!activeCharId || activeState?.loading) return;
@@ -535,15 +564,6 @@ export function CheckPhoneApp({ onClose }: CheckPhoneAppProps) {
     }));
   }
 
-  const handleBack = () => {
-    if (activeCharId) {
-      setActiveCharId(null);
-      setSelectedAppId(null);
-    } else {
-      onClose();
-    }
-  };
-
   async function handleClearManifest() {
     if (!activeCharId || activeState?.loading) return;
     await clearPhoneManifest(activeCharId);
@@ -579,7 +599,7 @@ export function CheckPhoneApp({ onClose }: CheckPhoneAppProps) {
           {!isEmbeddedAppOpen && (
             <div className="cp-floating-controls">
               <div className="cp-floating-settings" ref={settingsPanelRef}>
-                <button className="cp-float-back" onClick={handleBack} aria-label="Back to Archive">
+                <button className="cp-float-back" onClick={requestPhoneBack} aria-label="Back to Archive">
                   <ChevronLeft size={22} strokeWidth={2.5} />
                 </button>
                 <button
@@ -998,7 +1018,7 @@ export function CheckPhoneApp({ onClose }: CheckPhoneAppProps) {
   return (
     <PageShell
       title="Access Control"
-      onBack={handleBack}
+      onBack={requestPhoneBack}
       className="cp-page-override cp-roster-page"
       rightAction={
         <button

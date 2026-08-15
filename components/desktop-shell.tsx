@@ -3,6 +3,7 @@
 import { Component, memo, useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 
 import { updateStatusBarTone } from "@/lib/bg-tone";
+import { usePhoneBack, usePhoneBackHandler, type PhoneBackResult } from "@/lib/phone-navigation";
 import { startDiaryEntryTimerService, stopDiaryEntryTimerService } from "@/lib/diary-entry-timer-service";
 import { startFollowUpService, stopFollowUpService } from "@/lib/follow-up-service";
 import { startMomentsService, stopMomentsService } from "@/lib/moments-engine";
@@ -902,6 +903,7 @@ const MusicShellOverlays = memo(function MusicShellOverlays({
 });
 
 export function DesktopShell({ initialThemeProfile, initialThemeAssets }: DesktopShellProps) {
+  const requestPhoneBack = usePhoneBack();
   const musicOverlayControllerRef = useRef<MusicOverlayController | null>(null);
   const handleMusicOverlayControllerChange = useCallback((controller: MusicOverlayController | null) => {
     musicOverlayControllerRef.current = controller;
@@ -3587,7 +3589,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     setShoppingMounted(false);
   }, [shoppingBusy]);
 
-  function closeCustomAppRunner(app: InstalledCustomApp): void {
+  function closeCustomAppRunner(app: InstalledCustomApp): PhoneBackResult {
     const launchState = customAppLaunchContext?.appId === app.id ? customAppLaunchContext : null;
     setCustomAppLaunchContext(null);
     if (launchState?.returnTo?.appId === "chat") {
@@ -3599,10 +3601,49 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
           window.dispatchEvent(new CustomEvent(CHAT_OPEN_SESSION_EVENT, { detail: { sessionId } }));
         }, 0);
       }
-      return;
+      return "retain";
     }
     setActiveApp(null);
   }
+
+  const closeActiveAppForBack = useCallback((): PhoneBackResult => {
+    if (!activeApp) return;
+    const customApp = getCustomAppForIcon(activeApp);
+    if (customApp) return closeCustomAppRunner(customApp);
+    if (activeApp === "xiaohongshu") {
+      handleCloseXiaohongshu();
+      return;
+    }
+    if (activeApp === "shopping") {
+      handleCloseShopping();
+      return;
+    }
+    if (activeApp === "chat") {
+      setActiveChatSession(null);
+      setChatInitSessionId(null);
+    }
+    if (activeApp === "appmarket") setAppMarketLaunchContext(null);
+    setActiveApp(null);
+  }, [activeApp, handleCloseShopping, handleCloseXiaohongshu]);
+
+  usePhoneBackHandler(Boolean(activeApp), closeActiveAppForBack, -1000);
+  usePhoneBackHandler(!activeApp && Boolean(
+    showDesktopCustomizer || showWidgetPicker || openFolderId || editMode
+  ), () => {
+    if (showDesktopCustomizer) {
+      setShowDesktopCustomizer(false);
+      return "retain";
+    }
+    if (showWidgetPicker) {
+      setShowWidgetPicker(false);
+      return "retain";
+    }
+    if (openFolderId) {
+      setOpenFolderId(null);
+      return;
+    }
+    exitEditMode();
+  }, -1000);
 
   function dismissPendingCustomAppUpdate(): void {
     if (customAppUpdateBusy || !customAppUpdatePrompt) return;
@@ -3662,7 +3703,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
         <CustomAppRunner
           app={customApp}
           launchContext={customAppLaunchContext?.appId === customApp.id ? customAppLaunchContext.context : null}
-          onClose={() => closeCustomAppRunner(customApp)}
+          onClose={requestPhoneBack}
           onNotice={setNotice}
         />
       );
@@ -3671,11 +3712,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     if (activeApp === "chat") {
       return (
         <PhoneChatApp
-          onClose={() => {
-            setActiveApp(null);
-            setActiveChatSession(null);
-            setChatInitSessionId(null);
-          }}
+          onClose={requestPhoneBack}
           initialSessionId={chatInitSessionId}
           onSessionChange={setActiveChatSession}
         />
@@ -3688,7 +3725,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
           draft={draftTheme}
           onDraftChange={setDraftTheme}
           onApply={applyTheme}
-          onClose={() => setActiveApp(null)}
+          onClose={requestPhoneBack}
           onNotice={setNotice}
           widgets={widgets}
           onWidgetsChange={handleWidgetsChange}
@@ -3703,7 +3740,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     if (activeApp === "characters") {
       return (
         <PhoneCharacterApp
-          onClose={() => setActiveApp(null)}
+          onClose={requestPhoneBack}
           onNotice={setNotice}
         />
       );
@@ -3712,7 +3749,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     if (activeApp === "settings") {
       return (
         <PhoneSettingsApp
-          onClose={() => setActiveApp(null)}
+          onClose={requestPhoneBack}
           onNotice={setNotice}
         />
       );
@@ -3721,7 +3758,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     if (activeApp === "resources") {
       return (
         <PhoneResourcesApp
-          onClose={() => setActiveApp(null)}
+          onClose={requestPhoneBack}
           onNotice={setNotice}
           initialPage={resourcesInitialPage}
         />
@@ -3729,21 +3766,21 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     }
 
     if (activeApp === "music") {
-      return <MusicApp onClose={() => setActiveApp(null)} />;
+      return <MusicApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "calendar") {
-      return <PhoneCalendarApp onClose={() => setActiveApp(null)} onNotice={setNotice} />;
+      return <PhoneCalendarApp onClose={requestPhoneBack} onNotice={setNotice} />;
     }
     if (activeApp === "qa") {
-      return <PhoneQaApp onClose={() => setActiveApp(null)} onNotice={setNotice} />;
+      return <PhoneQaApp onClose={requestPhoneBack} onNotice={setNotice} />;
     }
     if (activeApp === "resource_hub") {
-      return <ResourceHubApp onClose={() => setActiveApp(null)} onNotice={setNotice} />;
+      return <ResourceHubApp onClose={requestPhoneBack} onNotice={setNotice} />;
     }
 
     if (activeApp === "diary") {
-      return <DiaryApp onClose={() => setActiveApp(null)} onNotice={setNotice} />;
+      return <DiaryApp onClose={requestPhoneBack} onNotice={setNotice} />;
     }
 
     if (activeApp === "xiaohongshu") {
@@ -3751,19 +3788,19 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     }
 
     if (activeApp === "story") {
-      return <StoryApp onClose={() => setActiveApp(null)} />;
+      return <StoryApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "vnmode") {
-      return <VnApp onClose={() => setActiveApp(null)} />;
+      return <VnApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "reading") {
-      return <ReadingApp onClose={() => setActiveApp(null)} />;
+      return <ReadingApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "mapmode") {
-      return <MapApp onClose={() => setActiveApp(null)} />;
+      return <MapApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "dwelling") {
@@ -3772,7 +3809,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     }
 
     if (activeApp === "checkphone") {
-      return <CheckPhoneApp onClose={() => setActiveApp(null)} />;
+      return <CheckPhoneApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "shopping") {
@@ -3780,16 +3817,13 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     }
 
     if (activeApp === "game") {
-      return <GameHubApp onClose={() => setActiveApp(null)} />;
+      return <GameHubApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "appmarket") {
       return (
         <AppMarketApp
-          onClose={() => {
-            setAppMarketLaunchContext(null);
-            setActiveApp(null);
-          }}
+          onClose={requestPhoneBack}
           onOpenCustomApp={(appId) => {
             setAppMarketLaunchContext(null);
             openCustomAppWithBackgroundUpdateCheck(toCustomAppIconId(appId));
@@ -3802,15 +3836,15 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     }
 
     if (activeApp === "interview_magazine") {
-      return <InterviewMagazineApp onClose={() => setActiveApp(null)} />;
+      return <InterviewMagazineApp onClose={requestPhoneBack} />;
     }
 
     if (activeApp === "cocreate") {
-      return <CoCreateApp onClose={() => setActiveApp(null)} onNotice={setNotice} />;
+      return <CoCreateApp onClose={requestPhoneBack} onNotice={setNotice} />;
     }
 
     return activeApp in ICONS
-      ? <PhonePlaceholderApp icon={ICONS[activeApp as IconId]} onClose={() => setActiveApp(null)} />
+      ? <PhonePlaceholderApp icon={ICONS[activeApp as IconId]} onClose={requestPhoneBack} />
       : null;
   }
 
@@ -4165,7 +4199,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                     <button type="button" className="edit-mode-edit" style={{ left: "50%", transform: "translateX(-50%)" }} onPointerDown={e => e.stopPropagation()} onClick={() => { setShowDesktopCustomizer(true); setShowWidgetPicker(false); }}>
                       装扮
                     </button>
-                    <button type="button" className="edit-mode-done" onClick={exitEditMode}>
+                    <button type="button" className="edit-mode-done" onClick={requestPhoneBack}>
                       完成
                     </button>
                   </>
@@ -4385,7 +4419,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                     {dwellingMounted && (
                       <section className="phone-app-pane" style={activeApp !== "dwelling" ? { display: "none" } : undefined}>
                         <DwellingApp
-                          onClose={() => setActiveApp(null)}
+                          onClose={requestPhoneBack}
                           visible={activeApp === "dwelling"}
                           onIdle={() => { if (activeApp !== "dwelling") setDwellingMounted(false); }}
                         />
@@ -4396,7 +4430,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                 {xiaohongshuMounted && (
                   <section className="phone-app-pane" style={activeApp !== "xiaohongshu" ? { display: "none" } : undefined}>
                     <XiaohongshuApp
-                      onClose={handleCloseXiaohongshu}
+                      onClose={requestPhoneBack}
                       onNotice={setNotice}
                       visible={activeApp === "xiaohongshu"}
                       onBusyChange={setXiaohongshuBusy}
@@ -4412,7 +4446,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                 {shoppingMounted && (
                   <section className="phone-app-pane" style={activeApp !== "shopping" ? { display: "none" } : undefined}>
                     <ShoppingApp
-                      onClose={handleCloseShopping}
+                      onClose={requestPhoneBack}
                       visible={activeApp === "shopping"}
                       onBusyChange={setShoppingBusy}
                       onIdle={() => {
@@ -4507,7 +4541,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                     <span className="ts-16 font-medium text-[var(--c-text-title)] flex items-center gap-2">
                       <LayoutGrid size={18} /> 添加组件
                     </span>
-                    <button className="ui-bare-btn text-[var(--c-icon)]" onClick={() => setShowWidgetPicker(false)}>✕</button>
+                    <button className="ui-bare-btn text-[var(--c-icon)]" onClick={requestPhoneBack}>✕</button>
                   </div>
 
                   <div className="px-4 py-3 flex gap-2 w-full">
@@ -4606,7 +4640,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                   draft={draftTheme}
                   onDraftChange={setDraftTheme}
                   onApply={applyTheme}
-                  onClose={() => setShowDesktopCustomizer(false)}
+                  onClose={requestPhoneBack}
                 />
               )}
 
@@ -4620,7 +4654,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                 if (memberPages.length === 0) memberPages.push([]);
                 const boundedFolderPage = Math.min(folderPageIndex, memberPages.length - 1);
                 return (
-                  <div className="folder-overlay" onClick={() => setOpenFolderId(null)}>
+                  <div className="folder-overlay" onClick={requestPhoneBack}>
                     <input
                       key={openFolderId}
                       className="folder-name-input"
@@ -4662,7 +4696,14 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
                                   key={memberId}
                                   type="button"
                                   className="folder-app"
-                                  onClick={() => { setOpenFolderId(null); openApp(memberId); }}
+                                  onClick={() => {
+                                    const openAfterHistoryBack = () => openApp(memberId);
+                                    window.addEventListener("popstate", openAfterHistoryBack, { once: true });
+                                    if (!requestPhoneBack()) {
+                                      window.removeEventListener("popstate", openAfterHistoryBack);
+                                      openApp(memberId);
+                                    }
+                                  }}
                                   onPointerDown={(e) => handleFolderIconPointerDown(e, memberId)}
                                   onPointerMove={handleFolderIconPointerMove}
                                   onPointerUp={cancelFolderIconPress}
