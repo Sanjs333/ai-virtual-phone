@@ -64,6 +64,7 @@ import { STICKER_NAMES, StickerPixelIcon } from "@/components/resource-hub/pixel
 import { RICH_COLORS, RichText } from "@/components/resource-hub/rich-text";
 import { RichEditor, type RichEditorHandle } from "@/components/resource-hub/rich-editor";
 import { PixelHourglass } from "@/components/pixel-hourglass";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -109,6 +110,7 @@ registerKvMigration(NOTICE_DISMISSED_KEY);
 const KEY_BACKUP_DONE_KEY = "ai_phone_resource_hub_key_backup_v1";
 
 export function ResourceHubApp({ onClose, onNotice }: { onClose: () => void; onNotice?: (msg: string) => void }) {
+    const requestPhoneBack = usePhoneBack();
     const [source, setSource] = useState<ResourceHubSource>(() => loadResourceHubSource());
     const [index, setIndex] = useState<ShareIndex | null>(null);
     const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -685,6 +687,9 @@ export function ResourceHubApp({ onClose, onNotice }: { onClose: () => void; onN
             ? () => setActiveFolder(null)
             : onClose;
 
+    usePhoneBackHandler(Boolean(activeFolder), () => setActiveFolder(null));
+    usePhoneBackHandler(Boolean(activeEntry), () => setActiveEntry(null));
+
     /** 作者头像：优先用随资源发布的 .avatar.png；自己的帖子退回本机头像；都没有就用默认像素头像 */
     const renderAuthorAvatar = (entry: ShareIndexEntry | null, size: number) => {
         const published = entry?.avatar ? resolveResourceHubAssetUrl(source, entry.avatar) : "";
@@ -754,7 +759,7 @@ export function ResourceHubApp({ onClose, onNotice }: { onClose: () => void; onN
 
                 {/* 工具条（返回/地址） */}
                 <div className="rh-toolbar">
-                    <button className="rh-btn" onClick={handleBack}>← 返回</button>
+                    <button className="rh-btn" onClick={() => { if (!requestPhoneBack()) handleBack(); }}>← 返回</button>
                     <span className="rh-address">
                         地址：C:\资源集市{viewMode === "mine" ? "\\我的货摊" : viewMode === "build" ? "\\共同建设" : ""}{activeFolder ? `\\${activeFolder}` : ""}{activeEntry ? `\\${activeEntry.name}` : ""}
                     </span>

@@ -28,6 +28,7 @@ import { loadChatAppSettings, saveChatAppSettings } from "@/lib/chat-storage";
 import { loadKeepAlive, saveKeepAlive } from "@/lib/weixin-storage";
 import { BINDING_ACCENTS, CONTENT_APP_ACCENTS } from "@/lib/ui-accent-colors";
 import { PwaDisplaySetting } from "@/components/pwa-display-setting";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 export const SettingsContext = createContext<{
     setSubpageTitle: (title: string | null) => void;
@@ -102,6 +103,7 @@ const logoutIconStyle = {
 } as CSSProperties;
 
 export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
+    const requestPhoneBack = usePhoneBack();
     const [currentPage, setCurrentPage] = useState<SubPage>("main");
     const [subpageTitle, setSubpageTitle] = useState<string | null>(null);
     const [subpageRightActions, setSubpageRightActions] = useState<Record<string, ReactNode>>({});
@@ -202,6 +204,16 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
             onClose();
         }
     };
+
+    usePhoneBackHandler(currentPage !== "main", () => {
+        setCurrentPage("main");
+        setSubpageTitle(null);
+        setOverrideBack(null);
+    });
+    usePhoneBackHandler(Boolean(overrideBack), () => {
+        overrideBack?.();
+        return "retain";
+    });
 
     const makeCardItem = (item: typeof SETTINGS_MENU[number]): CardItem => ({
         id: item.id,
@@ -353,7 +365,7 @@ export function PhoneSettingsApp({ onClose, onNotice }: SettingsPageProps) {
 
     return (
         <SettingsContext.Provider value={{ setSubpageTitle, setOverrideBack, setSubpageRightAction }}>
-            <PageShell title={title} onBack={handleBack} rightAction={currentPage !== "main" ? subpageRightActions[currentPage] : undefined} bodyRef={pageBodyRef}>
+            <PageShell title={title} onBack={() => { if (!requestPhoneBack()) handleBack(); }} rightAction={currentPage !== "main" ? subpageRightActions[currentPage] : undefined} bodyRef={pageBodyRef}>
                 {currentPage === "main" && (
                     <div className="page-menu settings-main-menu">
                         {!selfHostedMode && (

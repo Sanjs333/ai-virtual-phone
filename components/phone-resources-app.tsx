@@ -8,6 +8,7 @@ import { loadCharacters } from "@/lib/character-storage";
 import { PageShell } from "./ui/page-shell";
 import { FeaturedCard, type FeaturedCardItem } from "./ui/card-grid";
 import { BINDING_ACCENTS, CONTENT_APP_ACCENTS } from "@/lib/ui-accent-colors";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 export type ResourceSubPage = "main" | "memory" | "vn_assets";
 type MemoryView = "list" | "detail" | "settings";
@@ -30,6 +31,7 @@ const RESOURCE_MENU: Omit<FeaturedCardItem, "onClick">[] = [
 ];
 
 export function PhoneResourcesApp({ onClose, onNotice, initialPage }: { onClose: () => void; onNotice?: (msg: string) => void; initialPage?: ResourceSubPage }) {
+    const requestPhoneBack = usePhoneBack();
     const [currentPage, setCurrentPage] = useState<ResourceSubPage>(initialPage ?? "main");
     const [memoryView, setMemoryView] = useState<MemoryView>("list");
     const [prevMemoryView, setPrevMemoryView] = useState<MemoryView>("list");
@@ -61,6 +63,22 @@ export function PhoneResourcesApp({ onClose, onNotice, initialPage }: { onClose:
         }
     };
 
+    usePhoneBackHandler(currentPage !== "main", () => {
+        if (currentPage === "memory") {
+            setCurrentPage("main");
+            setMemoryView("list");
+            setMemoryCharId("");
+            setMemoryCharName("");
+        } else {
+            setCurrentPage("main");
+        }
+    });
+    usePhoneBackHandler(currentPage === "memory" && memoryView !== "list", () => {
+        if (memoryView === "settings") setMemoryView(prevMemoryView);
+        else setMemoryView("list");
+        return "retain";
+    });
+
     const handleSelectChar = (charId: string) => {
         const chars = loadCharacters();
         const char = chars.find(c => c.id === charId);
@@ -82,7 +100,7 @@ export function PhoneResourcesApp({ onClose, onNotice, initialPage }: { onClose:
     return (
         <PageShell
             title={title}
-            onBack={handleBack}
+            onBack={() => { if (!requestPhoneBack()) handleBack(); }}
             className={currentPage === "memory" && memoryView === "detail" ? "mem-detail" : undefined}
             rightAction={showSettingsIcon ? (
                 <button
