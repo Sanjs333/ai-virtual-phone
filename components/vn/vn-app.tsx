@@ -5,6 +5,7 @@ import { VnSelect } from "./vn-select";
 import { VnChapters } from "./vn-chapters";
 import { VnPlayer } from "./vn-player";
 import { loadVnConfig, saveVnConfig } from "@/lib/vn-storage";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 interface VnAppProps {
   onClose: () => void;
@@ -13,6 +14,7 @@ interface VnAppProps {
 type VnView = "select" | "chapters" | "player";
 
 export function VnApp({ onClose }: VnAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const [view, setView] = useState<VnView>("select");
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(0);
@@ -50,6 +52,9 @@ export function VnApp({ onClose }: VnAppProps) {
     window.dispatchEvent(new CustomEvent("open-app", { detail: { appId: "resources", resourcePage: "vn_assets" } }));
   }, []);
 
+  usePhoneBackHandler(view !== "select", handleBackFromChapters);
+  usePhoneBackHandler(view === "player", handleBackFromPlayer);
+
   if (view === "select") {
     return (
       <VnSelect
@@ -66,7 +71,7 @@ export function VnApp({ onClose }: VnAppProps) {
     return (
       <VnChapters
         characterId={selectedCharacterId}
-        onClose={handleBackFromChapters}
+        onClose={() => { if (!requestPhoneBack()) handleBackFromChapters(); }}
         onSelect={handleChapterSelect}
         vnTheme={vnTheme}
       />
@@ -78,7 +83,7 @@ export function VnApp({ onClose }: VnAppProps) {
       <VnPlayer
         characterId={selectedCharacterId}
         chapterIndex={activeChapterIndex}
-        onClose={handleBackFromPlayer}
+        onClose={() => { if (!requestPhoneBack()) handleBackFromPlayer(); }}
         onChapterEnd={handleChapterEnd}
         vnTheme={vnTheme}
       />

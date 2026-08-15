@@ -67,6 +67,7 @@ import {
 import { resolveUserIdentity } from "@/lib/settings-storage";
 import { incrementEventCounter } from "@/lib/memory-storage";
 import { maybeRunSummarization } from "@/lib/memory-summarizer";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type CoCreateAppProps = {
   onClose: () => void;
@@ -411,6 +412,7 @@ function buildCastMember(form: CastFormState, existing?: CoCreateCastMember): Co
 }
 
 export function CoCreateApp({ onClose, onNotice }: CoCreateAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [library, setLibrary] = useState<CoCreateLibrary>({ activeSessionId: "", sessions: [], settings: createDefaultCoCreateSettings() });
   const [session, setSession] = useState<CoCreateSession>(() => createDefaultCoCreateSession());
@@ -779,6 +781,15 @@ export function CoCreateApp({ onClose, onNotice }: CoCreateAppProps) {
     }
     openLibrary();
   }
+
+  usePhoneBackHandler(view !== "library", openLibrary);
+  usePhoneBackHandler(view === "chapterReader", () => {
+    if (chapterReaderEditing && hasUnsavedChapterReaderChanges()) {
+      requestChapterReaderExit("chapters");
+      return "retain";
+    }
+    requestChapterReaderExit("chapters");
+  });
 
   function openNewWorkDialog(): void {
     setNewWorkTitle("");
@@ -1716,7 +1727,7 @@ export function CoCreateApp({ onClose, onNotice }: CoCreateAppProps) {
           <button
             type="button"
             className="cocreate-back-button"
-            onClick={handleBack}
+            onClick={() => { if (!requestPhoneBack()) handleBack(); }}
             aria-label={view === "library" ? "返回桌面" : view === "chapterReader" ? "返回章节列表" : "返回作品库"}
           >
             <ChevronLeft size={22} />

@@ -3,10 +3,12 @@ import { useState, useCallback } from "react";
 import MapLobby from "./map-lobby";
 import MapView from "./map-view";
 import type { MapWorld, GameSave } from "@/lib/map-types";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 
 type View = "lobby" | "playing";
 
 export default function MapApp({ onClose }: { onClose: () => void }) {
+  const requestPhoneBack = usePhoneBack();
   const [view, setView] = useState<View>("lobby");
   const [activeWorld, setActiveWorld] = useState<MapWorld | null>(null);
   const [activeSave, setActiveSave] = useState<GameSave | null>(null);
@@ -23,13 +25,15 @@ export default function MapApp({ onClose }: { onClose: () => void }) {
     setActiveSave(null);
   }, []);
 
+  usePhoneBackHandler(view === "playing", handleBackToLobby);
+
   if (view === "playing" && activeWorld && activeSave) {
     return (
       <MapView
         world={activeWorld}
         save={activeSave}
         onSaveUpdate={setActiveSave}
-        onBack={handleBackToLobby}
+        onBack={() => { if (!requestPhoneBack()) handleBackToLobby(); }}
       />
     );
   }

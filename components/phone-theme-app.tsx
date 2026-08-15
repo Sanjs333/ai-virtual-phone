@@ -23,6 +23,7 @@ import type { DesktopIconLayout } from "@/lib/desktop-layout-storage";
 import { CUSTOM_APPS_UPDATED_EVENT, loadInstalledCustomApps } from "@/lib/custom-app-storage";
 import { toCustomAppIconId, type InstalledCustomApp } from "@/lib/custom-app-types";
 import { PageShell } from "@/components/ui/page-shell";
+import { usePhoneBack, usePhoneBackHandler } from "@/lib/phone-navigation";
 import {
   GRID_COLS,
   GRID_ROWS,
@@ -184,6 +185,7 @@ export function PhoneThemeApp({
   iconSkins,
   wallpaperStyle,
 }: PhoneThemeAppProps) {
+  const requestPhoneBack = usePhoneBack();
   const [section, setSection] = useState<ThemeSection>(() => {
     if (typeof window !== "undefined") {
       const pending = sessionStorage.getItem("mascot-theme-section");
@@ -271,10 +273,12 @@ export function PhoneThemeApp({
     }
   }
 
+  usePhoneBackHandler(section !== "menu", () => setSection("menu"));
+
   const title = section === "menu" ? "\u5916\u89C2" : SECTION_TITLES[section];
 
   return (
-    <PageShell title={title} onBack={handleBack}>
+    <PageShell title={title} onBack={() => { if (!requestPhoneBack()) handleBack(); }}>
         {section === "menu" ? (
           <div className="page-menu appearance-main-menu">
             {/* Section 1: 外观定制 — 2x2 card grid */}
